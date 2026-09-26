@@ -1,0 +1,89 @@
+{
+  "id": "yakErrorAlerts01",
+  "name": "yak-error-alerts",
+  "active": false,
+  "nodes": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "On workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "jsCode": "\nconst env = (k, d) => { try { return ($env && $env[k]) || d; } catch (e) { return d; } };\nreturn [{ json: {\n  backend_url: env('BACKEND_URL', 'http://backend:3000'),\n  yak_key: env('YAK_KEY', ''),\n  ollama_url: env('OLLAMA_URL', 'http://ollama:11434'),\n  ollama_model: env('OLLAMA_MODEL', 'qwen2.5:7b'),\n  whatsapp_min_kes: Number(env('WHATSAPP_MIN_KES', 149)),\n  android_app_url: env('ANDROID_APP_URL', 'https://www.yakwetu.africa'),\n} }];"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "name": "Log the error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.backend_url }}/api/logs",
+        "options": {
+          "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-yak-key",
+              "value": "={{ $('Settings').first().json.yak_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ stage: 'failed', status: 'error', reason: 'workflow_error', message: 'Workflow ' + $('On workflow error').first().json.workflow.name + ' failed at ' + (($('On workflow error').first().json.execution || {}).lastNodeExecuted || 'unknown node') + ': ' + ((($('On workflow error').first().json.execution || {}).error || {}).message || 'unknown error') }) }}"
+      }
+    }
+  ],
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Log the error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

@@ -1,0 +1,22 @@
+[
+  { "id": "t_priest_is_dead", "name": "THE PRIEST IS DEAD", "genre": "thriller", "languages": ["en", "sw", "sheng"], "price_kes": 199, "series_id": null, "episode": null, "view_id": "8f7b6a9578233e79", "preview": true },
+  { "id": "t_40_sticks", "name": "40 STICKS", "genre": "thriller", "languages": ["en"], "price_kes": 169, "series_id": null, "episode": null, "view_id": "8aae0fc21ae6c5ad", "preview": true },
+  { "id": "t_lost_in_time", "name": "LOST IN TIME", "genre": "thriller", "languages": ["en"], "price_kes": 169, "series_id": null, "episode": null, "view_id": "159523d727df74e6", "preview": true },
+  { "id": "t_why_u_hate", "name": "WHY U HATE", "genre": "thriller", "languages": ["en"], "price_kes": 149, "series_id": null, "episode": null, "view_id": "470fbb18d66c62e5", "preview": true },
+  { "id": "t_cards_on_the_table", "name": "CARDS ON THE TABLE", "genre": "thriller", "languages": ["en", "sw", "sheng"], "price_kes": 179, "series_id": null, "episode": null, "view_id": "d4c5b57c7f38b6eb", "preview": false },
+  { "id": "t_the_collector", "name": "THE COLLECTOR", "genre": "horror", "languages": ["en"], "price_kes": 39, "series_id": null, "episode": null, "view_id": "0355348d5ea25fe6", "preview": false },
+  { "id": "t_somewhere_to_stay", "name": "SOMEWHERE TO STAY", "genre": "horror", "languages": ["en"], "price_kes": 19, "series_id": null, "episode": null, "view_id": "942f70fd508b0f85", "preview": false },
+  { "id": "t_teka", "name": "TEKA", "genre": "drama", "languages": ["en", "sw", "sheng"], "price_kes": 129, "series_id": null, "episode": null, "view_id": "5f87ce41fb468ed1", "preview": true },
+  { "id": "t_kutu", "name": "KUTU", "genre": "drama", "languages": ["sw", "sheng"], "price_kes": 129, "series_id": null, "episode": null, "view_id": "880524385ca58e45", "preview": true },
+  { "id": "t_family_meeting", "name": "FAMILY MEETING", "genre": "comedy", "languages": ["en"], "price_kes": 189, "series_id": null, "episode": null, "view_id": "80a0147312484cf5", "preview": true },
+  { "id": "t_jonarobi", "name": "JONAROBI", "genre": "comedy", "languages": ["en", "luo"], "price_kes": 189, "series_id": null, "episode": null, "view_id": "82c1415eab1fa3ca", "preview": true },
+  { "id": "t_otis_janam", "name": "OTIS JANAM", "genre": "romance", "languages": ["luo"], "price_kes": 189, "series_id": null, "episode": null, "view_id": "1e78775e81448614", "preview": true },
+  { "id": "t_kienyeji", "name": "KIENYEJI", "genre": "romance", "languages": ["en", "sw", "sheng", "luo"], "price_kes": 189, "series_id": null, "episode": null, "view_id": "98f2ef3c8fde6715", "preview": false },
+  { "id": "t_lost_in_tsavo", "name": "LOST IN TSAVO!", "genre": "documentary", "languages": ["en", "sw"], "price_kes": 199, "series_id": null, "episode": null, "view_id": "7666b1d8f37c6eee", "preview": false },
+  { "id": "t_kizingo", "name": "KIZINGO", "genre": "family", "languages": ["en"], "price_kes": 149, "series_id": null, "episode": null, "view_id": "1c0e952a8c26d9bd", "preview": false },
+  { "id": "t_supastaz", "name": "SUPASTAZ", "genre": "family", "languages": ["sw", "sheng", "en"], "price_kes": 49, "series_id": null, "episode": null, "view_id": "9815170a0a989e2f", "preview": false },
+  { "id": "t_return_to_kenya_1", "name": "RETURN TO KENYA Ep.01", "genre": "travel", "languages": ["en"], "price_kes": 49, "series_id": "s_return_to_kenya", "episode": 1, "view_id": "6d919da834656d0a", "preview": false },
+  { "id": "t_return_to_kenya_2", "name": "RETURN TO KENYA Ep.02", "genre": "travel", "languages": ["en"], "price_kes": 49, "series_id": "s_return_to_kenya", "episode": 2, "view_id": "1b6798136a983594", "preview": false },
+  { "id": "t_brokeology_1", "name": "NAIROBI BROKEOLOGY BULLETIN Ep.01", "genre": "comedy", "languages": ["en"], "price_kes": 5, "series_id": "s_brokeology", "episode": 1, "view_id": "438c4bc7a0894bd1", "preview": false },
+  { "id": "t_brokeology_2", "name": "NAIROBI BROKEOLOGY BULLETIN Ep.02", "genre": "comedy", "languages": ["en"], "price_kes": 5, "series_id": "s_brokeology", "episode": 2, "view_id": "336ca559b8a08b62", "preview": false }
+]

@@ -1,0 +1,34 @@
+services:
+  backend:
+    build: ./backend
+    ports: ["3000:3000"]
+    env_file: .env
+    environment:
+      N8N_WEBHOOK_URL: http://n8n:5678/webhook/yak/events
+    restart: unless-stopped
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    ports: ["5678:5678"]
+    env_file: .env
+    environment:
+      GENERIC_TIMEZONE: Africa/Nairobi
+      TZ: Africa/Nairobi
+      N8N_SECURE_COOKIE: "false"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      BACKEND_URL: http://backend:3000
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflows:/workflows:ro
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports: ["11434:11434"]
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
+  ollama_data:

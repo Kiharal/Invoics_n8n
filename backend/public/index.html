@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YAKWETU re-engagement engine demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --night: #221b3a;
+    --panel: #2e2650;
+    --panel-2: #3a3163;
+    --marquee: #f4c152;
+    --mint: #5fd3b3;
+    --flare: #f0664f;
+    --mist: #eae6f5;
+    --muted: #a79fc6;
+    --font: "Familjen Grotesk", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--night); color: var(--mist); font: 15px/1.45 var(--font); }
+  button, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--marquee); outline-offset: 2px; }
+
+  .app { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(360px, 1fr); height: 100vh; }
+  @media (max-width: 960px) { .app { grid-template-columns: 1fr; height: auto; } }
+
+  /* ---------- storefront ---------- */
+  .store { overflow-y: auto; padding: 24px 28px 40px; }
+  .brand { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; }
+  .brand h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+  .brand p { margin: 0; color: var(--muted); }
+
+  .viewer { background: var(--panel); border-radius: 14px; padding: 16px; margin-bottom: 18px; }
+  .people { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .person { background: var(--panel-2); border: 1px solid transparent; border-radius: 999px; padding: 6px 14px; }
+  .person[aria-pressed="true"] { border-color: var(--marquee); color: var(--marquee); }
+  .person small { color: var(--muted); margin-left: 6px; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field span { color: var(--muted); font-size: 13px; }
+  select { background: var(--panel-2); border: 1px solid #4a4078; border-radius: 8px; padding: 6px 8px; }
+  .consent { display: flex; gap: 12px; }
+  .consent label { display: flex; gap: 5px; align-items: center; }
+  .viewer-note { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+  .quiet { background: none; border: 1px solid var(--muted); border-radius: 8px; padding: 6px 12px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
+  .tile { background: var(--panel); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .poster { aspect-ratio: 3 / 2; padding: 12px; display: flex; align-items: flex-end; font-weight: 700; font-size: 18px; line-height: 1.05; letter-spacing: -0.01em; }
+  .meta { padding: 10px 12px 4px; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; }
+  .meta b { color: var(--mist); font-weight: 600; }
+  .owned { color: var(--mint); }
+  .actions { display: flex; gap: 6px; padding: 8px 12px 12px; margin-top: auto; }
+  .actions button { flex: 1; border-radius: 8px; padding: 7px 6px; border: 1px solid #4a4078; background: none; font-size: 13px; }
+  .actions .buy { background: var(--marquee); color: var(--night); border-color: var(--marquee); font-weight: 600; }
+  .actions button:disabled { opacity: .4; cursor: default; }
+
+  .tools { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; color: var(--muted); font-size: 13px; }
+  .tools button { background: none; border: 1px solid #4a4078; border-radius: 8px; padding: 6px 12px; color: var(--mist); }
+
+  /* ---------- engine panel ---------- */
+  .engine { background: #1b1530; overflow-y: auto; padding: 24px 22px 40px; border-left: 1px solid #332b58; }
+  .engine header h2 { margin: 0 0 4px; font-size: 20px; }
+  .engine header p { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+  .stats { display: flex; gap: 18px; margin-bottom: 18px; font-size: 13px; color: var(--muted); }
+  .stats b { display: block; font-size: 22px; color: var(--mist); }
+  .empty { color: var(--muted); border: 1px dashed #4a4078; border-radius: 12px; padding: 18px; }
+
+  .run { background: var(--panel); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .run h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+  .run h3 span { color: var(--muted); font-weight: 400; }
+  .bulbs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 10px; }
+  .bulb { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 5px; }
+  .bulb i { height: 8px; border-radius: 4px; background: #4a4078; transition: background .3s; }
+  .bulb.on i { background: var(--marquee); box-shadow: 0 0 10px rgba(244,193,82,.55); }
+  .bulb.done i { background: var(--mint); }
+  .bulb.stop i { background: var(--flare); }
+  .bulb.on, .bulb.done { color: var(--mist); }
+  .clock { font-size: 13px; color: var(--marquee); margin-bottom: 8px; }
+  .steps { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  .steps li { padding: 3px 0; color: var(--muted); }
+  .steps li.stop { color: var(--flare); }
+  .steps li.ok { color: var(--mist); }
+  .message { overflow-wrap: anywhere; margin-top: 10px; background: var(--night); border-left: 3px solid var(--mint); padding: 10px 12px; border-radius: 6px; white-space: pre-wrap; font-size: 14px; }
+  .tag { display: inline-block; font-size: 12px; border-radius: 6px; padding: 1px 7px; margin-right: 6px; background: var(--panel-2); color: var(--mist); }
+  .tag.ai { background: var(--marquee); color: var(--night); }
+  .tag.fallback { background: var(--flare); color: var(--night); }
+  .note { font-size: 13px; color: var(--muted); padding: 8px 12px; border-left: 3px solid #4a4078; margin-bottom: 12px; }
+  .note.bought { border-color: var(--mint); color: var(--mist); }
+
+  /* ---------- dialog ---------- */
+  dialog { background: var(--panel); color: var(--mist); border: none; border-radius: 14px; max-width: 380px; padding: 22px; }
+  dialog::backdrop { background: rgba(10, 6, 25, .6); }
+  dialog h4 { margin: 0 0 6px; font-size: 18px; }
+  dialog p { color: var(--muted); margin: 0 0 16px; }
+  dialog .buttons { display: flex; gap: 8px; }
+  dialog button { flex: 1; border-radius: 8px; padding: 8px; border: 1px solid #4a4078; background: none; }
+  dialog button.primary { background: var(--marquee); color: var(--night); border-color: var(--marquee); font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="store">
+    <div class="brand">
+      <h1>YAKWETU</h1>
+      <p>Storefront simulator. Every click sends a real event to the engine.</p>
+    </div>
+
+    <section class="viewer" aria-label="Who is watching">
+      <div class="people" id="people"></div>
+      <div class="row">
+        <div class="field"><span>Marketing consent</span><div class="consent" id="consent"></div></div>
+        <label class="field"><span>Device</span>
+          <select id="device">
+            <option value="supported">Chrome on laptop or Android</option>
+            <option value="ios">iPhone or iPad</option>
+            <option value="desktop_non_chrome">Laptop, not Chrome</option>
+            <option value="android">Android, no app installed</option>
+          </select>
+        </label>
+        <label class="field"><span>What happens at payment</span>
+          <select id="payment">
+            <option value="success">M-Pesa payment goes through</option>
+            <option value="stk_timeout">M-Pesa prompt times out</option>
+            <option value="wrong_pin">Wrong M-Pesa PIN</option>
+            <option value="insufficient_funds">Not enough M-Pesa balance</option>
+            <option value="card_declined">Card declined</option>
+          </select>
+        </label>
+        <div class="field"><span>Signed in</span><label><input type="checkbox" id="signedIn" checked> Yes</label></div>
+        <div class="field"><span>Win-back</span><button class="quiet" id="goQuiet">Go quiet for 30 days</button></div>
+      </div>
+      <p class="viewer-note" id="viewerNote"></p>
+    </section>
+
+    <section class="grid" id="grid" aria-label="Titles"></section>
+
+    <div class="tools">
+      <button id="replay">Send the last event again</button>
+      <label>Offline AI stub
+        <select id="stubMode">
+          <option value="good">Writes a good message</option>
+          <option value="bad">Breaks the rules</option>
+          <option value="slow">Times out</option>
+        </select>
+      </label>
+      <button id="reset">Reset demo</button>
+    </div>
+  </main>
+
+  <aside class="engine" aria-live="polite">
+    <header>
+      <h2>Engine</h2>
+      <p>Each run shows what the n8n pipeline decided and why. Waits are compressed: real delays are shown next to demo seconds.</p>
+    </header>
+    <div class="stats" id="stats"></div>
+    <div id="runs"><p class="empty">Nothing yet. Pick a viewer and preview or buy a title.</p></div>
+  </aside>
+</div>
+
+<dialog id="dialog"><h4 id="dTitle"></h4><p id="dBody"></p><div class="buttons" id="dButtons"></div></dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const api = async (path, opts = {}) => {
+  const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  return r.json();
+};
+const GENRE_COLORS = { thriller: '#7b2d43', horror: '#3b3b58', drama: '#1f5f6b', comedy: '#b5652b', romance: '#9c3d6e', documentary: '#4d6b2f', family: '#2f5aa0', travel: '#6b5a2f' };
+const STAGES = ['Event', 'Wait', 'Checks', 'Message', 'Delivery'];
+const fmtReal = (m) => m == null ? '' : m === 0 ? 'no delay' : m < 60 ? `${m} min` : m < 1440 ? `${+(m / 60).toFixed(1)} h` : `${Math.round(m / 1440)} days`;
+
+let users = [], catalog = [], current = null, lastEvent = null;
+const signedIn = {};
+
+async function load() {
+  [users, catalog] = await Promise.all([api('/api/users'), api('/api/catalog')]);
+  if (!current) current = users[0].id;
+  renderPeople(); renderGrid();
+}
+const me = () => users.find((u) => u.id === current);
+
+function renderPeople() {
+  $('#people').innerHTML = users.map((u) => `<button class="person" aria-pressed="${u.id === current}" data-id="${u.id}">${u.name}<small>${u.language}</small></button>`).join('');
+  const u = me();
+  $('#consent').innerHTML = ['whatsapp', 'sms', 'email'].map((c) => `<label><input type="checkbox" data-c="${c}" ${u.consent[c] ? 'checked' : ''}> ${c === 'sms' ? 'SMS' : c === 'email' ? 'Email' : 'WhatsApp'}</label>`).join('');
+  $('#viewerNote').textContent = `${u.note}. Owns ${u.owned.length} title${u.owned.length === 1 ? '' : 's'}. Favourite genre: ${u.top_genre}.`;
+  $('#signedIn').checked = signedIn[u.id] !== false;
+}
+function renderGrid() {
+  const u = me();
+  $('#grid').innerHTML = catalog.map((t) => {
+    const owned = u.owned.includes(t.id);
+    return `<article class="tile">
+      <div class="poster" style="background:${GENRE_COLORS[t.genre] || '#444'}">${t.name}</div>
+      <div class="meta"><span>${t.genre}, ${t.languages.join('/')}</span><b>KES ${t.price_kes}</b></div>
+      <div class="actions">
+        <button data-act="look" data-id="${t.id}" ${owned ? 'disabled' : ''}>${t.preview ? 'Preview, then leave' : 'View, then leave'}</button>
+        ${owned ? '<button disabled class="owned">Owned</button>' : `<button class="buy" data-act="buy" data-id="${t.id}">BUY</button>`}
+      </div></article>`;
+  }).join('');
+}
+
+async function fire(event, title_id, context = {}) {
+  const res = await api('/api/events', { method: 'POST', body: { event, user_id: current, title_id, context } });
+  lastEvent = res.event;
+}
+function ask(title, body, buttons) {
+  $('#dTitle').textContent = title; $('#dBody').textContent = body;
+  $('#dButtons').innerHTML = '';
+  buttons.forEach(([label, fn, primary]) => {
+    const b = document.createElement('button'); b.textContent = label; if (primary) b.className = 'primary';
+    b.onclick = () => { $('#dialog').close(); fn && fn(); }; $('#dButtons').append(b);
+  });
+  $('#dialog').showModal();
+}
+async function buy(t) {
+  const u = me();
+  if (signedIn[u.id] === false) {
+    return ask('Sign in to YAKWETU', 'This is what a signed-out buyer sees today: a bare sign-in form with no film and no price.', [
+      ['Leave this page', () => fire('auth_abandoned', t.id, { ref: t.id })],
+      ['Sign in', () => { signedIn[u.id] = true; renderPeople(); buy(t); }, true],
+    ]);
+  }
+  const device = $('#device').value;
+  if (device !== 'supported') {
+    return ask('Playback not supported', 'YAKWETU plays in Chrome on Windows, macOS and Android. Buyers only learn this after clicking BUY.', [
+      ['Close', () => fire('unsupported_device', t.id, { platform: device })],
+    ]);
+  }
+  const outcome = $('#payment').value;
+  if (outcome === 'success') {
+    await api('/api/purchases', { method: 'POST', body: { user_id: u.id, title_id: t.id } });
+    await load();
+  } else {
+    await fire('payment_failed', t.id, { failure_reason: outcome, payment_method: outcome === 'card_declined' ? 'card' : 'mpesa' });
+  }
+}
+
+$('#people').onclick = (e) => { const b = e.target.closest('.person'); if (b) { current = b.dataset.id; renderPeople(); renderGrid(); } };
+$('#consent').onchange = async (e) => {
+  const c = e.target.dataset.c; if (!c) return;
+  await api(`/api/users/${current}/consent`, { method: 'POST', body: { [c]: e.target.checked } });
+  await load();
+};
+$('#signedIn').onchange = (e) => { signedIn[current] = e.target.checked; };
+$('#grid').onclick = (e) => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const t = catalog.find((x) => x.id === b.dataset.id);
+  if (b.dataset.act === 'look') fire(t.preview ? 'preview_completed' : 'title_viewed', t.id, { seconds_watched: t.preview ? 90 : 0 });
+  else buy(t);
+};
+$('#goQuiet').onclick = () => api(`/api/users/${current}/inactive`, { method: 'POST' });
+$('#replay').onclick = () => lastEvent && api('/api/events', { method: 'POST', body: { ...lastEvent } });
+$('#stubMode').onchange = (e) => api('/api/admin/ai-stub-mode', { method: 'POST', body: { mode: e.target.value } });
+$('#reset').onclick = async () => { await api('/api/admin/reset', { method: 'POST' }); runs.clear(); notes.length = 0; $('#runs').innerHTML = ''; await load(); drawRuns(); stats(); };
+
+// ---------- engine panel ----------
+const runs = new Map(); // event_id -> { head, rows[] }
+const notes = [];      // rows without an event_id, rendered inline in time order
+function ingest(row) {
+  if (row.stage === 'purchased' || row.stage === 'inactive_armed' || !row.event_id) { notes.push(row); }
+  else {
+    const key = row.event_id + (row.replay ? '#' + row.id : '');
+    // a replayed event gets its own card so the duplicate stop is visible
+    // duplicates belong to the newest card for this event_id; every other stage to the original run
+    const same = [...runs.values()].filter((r) => r.event_id === row.event_id);
+    let target = row.stage === 'fired' ? null : row.stage === 'duplicate' ? same[same.length - 1] : same[0];
+    if (!target) { target = { event_id: row.event_id, first: row.id, rows: [] }; runs.set(key, target); }
+    target.rows.push(row);
+  }
+  if (row.stage === 'purchased' || row.stage === 'sent') load();
+  drawRuns(); stats();
+}
+function bulbState(r) {
+  const s = Object.fromEntries(STAGES.map((x) => [x, '']));
+  let stopped = false;
+  for (const row of r.rows) {
+    if (row.stage === 'fired') s.Event = 'done';
+    if (row.stage === 'duplicate' || (row.stage === 'suppressed' && row.at === 'admit')) { s.Wait = 'stop'; stopped = true; }
+    if (row.stage === 'waiting') s.Wait = 'on';
+    if (row.stage === 'checked') { s.Wait = 'done'; s.Checks = 'done'; }
+    if (row.stage === 'suppressed' && row.at === 'gate') { s.Wait = 'done'; s.Checks = 'stop'; stopped = true; }
+    if (row.stage === 'sent') { s.Message = 'done'; s.Delivery = 'done'; }
+    if (row.stage === 'failed') { s.Delivery = 'stop'; stopped = true; }
+  }
+  if (s.Checks === 'done' && !s.Delivery) s.Message = 'on';
+  return { s, stopped };
+}
+function drawRuns() {
+  const cards = [...runs.values()].map((r) => ({ at: r.first, html: runCard(r) }));
+  const noteCards = notes.map((n) => ({ at: n.id, html: `<div class="note ${n.stage === 'purchased' ? 'bought' : ''}">${n.message}${n.stage === 'inactive_armed' ? `<div class="clock" data-end="${Date.parse(n.ts) + n.demo_delay_s * 1000}" data-real="${n.real_delay_min}"></div>` : ''}</div>` }));
+  const all = [...cards, ...noteCards].sort((a, b) => b.at - a.at);
+  $('#runs').innerHTML = all.length ? all.map((c) => c.html).join('') : '<p class="empty">Nothing yet. Pick a viewer and preview or buy a title.</p>';
+  tick();
+}
+function runCard(r) {
+  const fired = r.rows.find((x) => x.stage === 'fired');
+  const waiting = r.rows.find((x) => x.stage === 'waiting');
+  const sent = r.rows.find((x) => x.stage === 'sent' || (x.stage === 'failed' && x.channel));
+  const { s } = bulbState(r);
+  const branch = (r.rows.find((x) => x.branch) || {}).branch || '';
+  const steps = r.rows.filter((x) => x.stage !== 'fired').map((x) => {
+    const cls = ['suppressed', 'duplicate', 'failed'].includes(x.stage) ? 'stop' : 'ok';
+    let text = x.message && x.stage !== 'sent' ? x.message : '';
+    if (x.stage === 'sent') text = `Sent by ${labelChannel(x.channel)}${x.delivery === 'simulated' ? ' (simulated, no credentials set)' : x.delivery === 'logged' ? ' (logged only)' : ''}`;
+    if (x.stage === 'failed' && x.channel) text = `Delivery by ${labelChannel(x.channel)} failed: ${x.detail}`;
+    return text ? `<li class="${cls}">${text}</li>` : '';
+  }).join('');
+  const clock = waiting && s.Wait === 'on' ? `<div class="clock" data-end="${Date.parse(waiting.ts) + waiting.demo_delay_s * 1000}" data-real="${waiting.real_delay_min}"></div>` : '';
+  const why = sent && sent.source === 'fallback' && sent.reason ? ` (${escapeHtml(sent.reason)})` : '';
+  const msg = sent && sent.message ? `<div class="message"><span class="tag ${sent.source}">${labelSource(sent.source)}${why}</span>${escapeHtml(sent.message)}</div>` : '';
+  return `<article class="run">
+    <h3>${fired ? (fired.replay ? 'Same event sent again: ' : '') + fired.message : 'Event'} <span>${branch ? branchName(branch) : ''}</span></h3>
+    <div class="bulbs">${STAGES.map((x) => `<div class="bulb ${s[x]}"><i></i>${x}</div>`).join('')}</div>
+    ${clock}<ul class="steps">${steps}</ul>${msg}</article>`;
+}
+const labelChannel = (c) => ({ whatsapp: 'WhatsApp', sms: 'SMS', email: 'email' }[c] || c);
+const labelSource = (s) => ({ ai: 'Written by AI', fallback: 'AI rejected, fallback sent', template: 'Template' }[s] || s);
+const branchName = (b) => ({ A_browse: 'Browse recovery', B_payment: 'Payment rescue', B_device: 'Device bridge', signup_rescue: 'Sign-up rescue', winback: 'Win-back' }[b] || b);
+const escapeHtml = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function tick() {
+  document.querySelectorAll('.clock[data-end]').forEach((el) => {
+    const left = Math.max(0, (Number(el.dataset.end) - Date.now()) / 1000);
+    el.textContent = left > 0 ? `${left.toFixed(1)} s left in the demo, ${fmtReal(Number(el.dataset.real))} in real life` : `Wait over (${fmtReal(Number(el.dataset.real))} in real life)`;
+  });
+}
+setInterval(tick, 100);
+async function stats() {
+  const st = await api('/api/stats');
+  $('#stats').innerHTML = `<div><b>${st.sent}</b>sent</div><div><b>${st.suppressed}</b>held back</div><div><b>${st.purchased}</b>purchases</div><div><b>${st.ios_waitlist}</b>iPhone buyers turned away</div>`;
+  $('#stubMode').value = st.aiStubMode;
+}
+
+(async function start() {
+  await load();
+  (await api('/api/logs')).forEach(ingest);
+  const es = new EventSource('/api/logs/stream');
+  es.onmessage = (e) => ingest(JSON.parse(e.data));
+  es.addEventListener('reset', () => { runs.clear(); notes.length = 0; drawRuns(); });
+  stats();
+})();
+</script>
+</body>
+</html>

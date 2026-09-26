@@ -1,0 +1,17 @@
+[
+  { "id": "u_amina", "name": "Amina", "language": "en", "phone_env": "DEMO_PHONE_1", "email": "amina@demo.yakwetu.test",
+    "consent": { "whatsapp": true, "sms": true, "email": true }, "owned": [], "top_genre": "thriller",
+    "note": "Consents to everything" },
+  { "id": "u_brian", "name": "Brian", "language": "en", "phone_env": "DEMO_PHONE_2", "email": "brian@demo.yakwetu.test",
+    "consent": { "whatsapp": false, "sms": false, "email": true }, "owned": ["t_family_meeting"], "top_genre": "comedy",
+    "note": "Email only" },
+  { "id": "u_wanjiru", "name": "Wanjiru", "language": "sheng", "phone_env": "DEMO_PHONE_3", "email": "wanjiru@demo.yakwetu.test",
+    "consent": { "whatsapp": true, "sms": false, "email": false }, "owned": ["t_teka"], "top_genre": "drama",
+    "note": "WhatsApp only, prefers Sheng" },
+  { "id": "u_otieno", "name": "Otieno", "language": "en", "phone_env": "DEMO_PHONE_4", "email": "otieno@demo.yakwetu.test",
+    "consent": { "whatsapp": false, "sms": false, "email": false }, "owned": [], "top_genre": "romance",
+    "note": "No marketing consent" },
+  { "id": "u_kevo", "name": "Kevo", "language": "en", "phone_env": "DEMO_PHONE_1", "email": "kevo@demo.yakwetu.test",
+    "consent": { "whatsapp": true, "sms": false, "email": true }, "owned": ["t_40_sticks", "t_why_u_hate", "t_lost_in_time"], "top_genre": "thriller",
+    "note": "Past thriller buyer, for win-back" }
+]
