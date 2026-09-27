@@ -41,6 +41,7 @@ resetState();
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.get('/logs', (req, res) => res.sendFile(path.join(__dirname, 'public', 'logs.html')));
 
 const requireKey = (req, res, next) => {
   if (!YAK_KEY || req.get('x-yak-key') === YAK_KEY) return next();

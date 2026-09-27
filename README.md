@@ -21,7 +21,7 @@ docker compose exec n8n n8n import:workflow --separate --input=/workflows
 
 1. Open http://localhost:5678, create the owner account.
 2. Open **yak-engine-pipeline** and **yak-winback-scan** and activate (publish) both. `yak-error-alerts` does not need activating; check the pipeline's settings list it as the error workflow.
-3. Open http://localhost:3000. Pick a viewer, click things, watch the engine panel.
+3. Open http://localhost:3000. Simulator is on the left; Logs update live on the right. http://localhost:3000/logs is the same console full-page.
 
 With nothing in `.env`, everything works and deliveries are marked "simulated". Add credentials to go live:
 
@@ -30,7 +30,7 @@ With nothing in `.env`, everything works and deliveries are marked "simulated". 
 | Email | `SMTP_*` set (Mailtrap Email Sandbox) | Show the Mailtrap inbox on screen |
 | WhatsApp | `WA_TOKEN`, `WA_PHONE_NUMBER_ID`, `DEMO_PHONE_*` set | Test number only reaches verified phones. Free-form text needs the phone to have messaged the test number within 24 h; otherwise set `WA_TEMPLATE_NAME` |
 | SMS | never | Logged only, per D6 |
-| AI | Ollama running with the model pulled | `OLLAMA_URL=http://backend:3000/mock-ollama` uses the stub; the storefront can switch the stub to "breaks the rules" or "times out" to show the guardrails |
+| AI | Ollama running with the model pulled | `OLLAMA_URL=http://backend:3000/mock-ollama` uses the stub; Logs can switch the stub to "breaks the rules" or "times out" to show the guardrails |
 
 After changing `.env`: `docker compose up -d` (recreates containers).
 
@@ -38,18 +38,20 @@ After changing `.env`: `docker compose up -d` (recreates containers).
 
 Start win-back first so it lands last.
 
-1. **Win-back:** Kevo, "Go quiet for 30 days". Countdown starts at 54.5 s.
-2. **Payment rescue:** Amina, payment "M-Pesa prompt times out", BUY 40 STICKS. Message in 3.5 s. Then repeat and pick "goes through" during the wait on a preview to show the re-check stopping a nudge.
-3. **Device bridge:** Brian, device "iPhone or iPad", BUY. The "iPhone buyers turned away" counter goes up.
-4. **Browse recovery (AI):** Amina, "Preview, then leave" on THE PRIEST IS DEAD. Talk through the guardrails during the 24.5 s wait. Then Otieno (no consent: held back) and Wanjiru (WhatsApp only, KUTU is below the price floor, so the engine pitches a title that justifies a paid message).
-5. **Sign-up rescue:** untick "Signed in", BUY, "Leave this page".
-6. **Duplicate:** "Send the last event again". The panel shows it ignored.
+Keep the storefront and `/logs` open side by side.
+
+1. **Win-back:** On Simulator, open the person menu → Kevo → Quiet 30 days. The new log row opens on its own; countdown starts at 54.5 s.
+2. **Payment rescue:** Amina, BUY 40 STICKS. In checkout pick "M-Pesa prompt times out", Pay. Message in 3.5 s. Then repeat and pick "goes through" during the wait on a preview to show the re-check stopping a nudge.
+3. **Device bridge:** Brian, set device to "iPhone or iPad", BUY. Close the playback popup. The iPhone counter on Logs goes up.
+4. **Browse recovery (AI):** Amina, Preview on THE PRIEST IS DEAD, Leave. Talk through the guardrails during the 24.5 s wait. Then Otieno (no consent: held back) and Wanjiru (WhatsApp only, KUTU is below the price floor, so the engine pitches a title that justifies a paid message).
+5. **Sign-up rescue:** untick Signed in, BUY, "Leave this page".
+6. **Duplicate:** On Logs, Replay. The row shows it was ignored.
 
 ## Layout
 
 ```
 backend/            Express app: platform mock, log store (SSE), delivery adapters, AI stub
-backend/public/     Storefront simulator + engine panel (one static page)
+backend/public/     Storefront at / and engine logs at /logs
 backend/data/       Catalog (real Yakwetu titles) and demo users
 workflows/          n8n workflows (generated, importable)
 tools/build-workflows.js   Source for the workflows. Edit here, run `node tools/build-workflows.js`

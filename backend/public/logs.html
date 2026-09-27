@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yakwetu · Logs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=Inter:wght@400;500&display=swap">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body class="full">
+<main class="page">
+  <header class="pane-head">
+    <h1>Logs</h1>
+    <div class="tools">
+      <button class="ghost" id="replay" type="button">Replay</button>
+      <div class="listbox" data-listbox="stub" data-value="good">
+        <button class="listbox-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="listbox-value">Writes a good message</span></button>
+        <ul class="listbox-menu" hidden>
+          <li data-value="good">Writes a good message</li>
+          <li data-value="bad">Breaks the rules</li>
+          <li data-value="slow">Times out</li>
+        </ul>
+      </div>
+      <button class="ghost" id="reset" type="button">Reset</button>
+    </div>
+  </header>
+  <p class="stats" id="stats"></p>
+  <div class="filters" id="filters">
+    <button type="button" data-filter="all" aria-pressed="true">All</button>
+    <button type="button" data-filter="sent">Sent</button>
+    <button type="button" data-filter="held">Held</button>
+    <button type="button" data-filter="failed">Failed</button>
+    <button type="button" data-filter="waiting">Waiting</button>
+  </div>
+  <div class="table" id="rows"><p class="empty">Nothing yet.</p></div>
+</main>
+
+<script src="/common.js"></script>
+<script src="/logs.js"></script>
+</body>
+</html>

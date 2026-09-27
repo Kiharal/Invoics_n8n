@@ -1,0 +1,2 @@
+bindListboxes();
+LogBoard().start();
