@@ -168,6 +168,20 @@ real_minutes = e^(demo_seconds / 5.1) − 1      (inverse, for display)
 - Mock purchase status held by the mock backend, so the re-check step has something real to call.
 - One log store that both n8n writes to and the frontend reads from.
 
+### D10. Hardening and personalisation (2026-09-28)
+
+**Problem:** AI messages all read the same. Cause: the model was never pulled, so every AI nudge was the fallback template; and even with a model, the prompt only carried the viewer's name and a title list, so there was nothing to personalise with.
+
+**Decision:**
+- The catalog carries each film's real story, cast and runtime (from the title pages). The backend keeps per-viewer activity and returns a profile (favourite genre from purchases, owned titles, recent activity).
+- The rules attach a `why_for_viewer` to each candidate (previewed it, shares an actor with a film they own, same genre, their language). The model gets this as a JSON brief with one worked example, and must name the film, use a story detail and connect it to the viewer.
+- Output is constrained by a JSON schema (pick is an enum of candidate ids). New guardrails: names the picked film, names no other candidate, no example leak, no links, KES figures must be real.
+- The fallback template is personal too, so a model failure never reads as a mass mailing.
+- Tested with qwen2.5:7b: it invented feelings ("you loved"), crew facts ("same director") and film genres, and wrote poor Sheng. Guardrails now reject those, and a rejected message gets one retry with the reason before the fallback. Sheng speakers get English with a Sheng greeting.
+- Nudge lock: one browse or sign-up nudge per viewer and title, one win-back per viewer, per 24 h real (compressed with the same function). Utility help is never locked. Stops "preview then view" from sending two nudges.
+- Purchase is re-checked again right before delivery; the delivery adapter refuses channels without consent.
+- `tools/stress.js` checks all of the above against the log.
+
 ---
 
 ## 3. Deferred (later this week, if time allows)

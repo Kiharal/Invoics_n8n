@@ -32,7 +32,9 @@ function bulbState(r) {
     if (row.stage === 'duplicate' || (row.stage === 'suppressed' && row.at === 'admit')) s.Wait = 'stop';
     if (row.stage === 'waiting') s.Wait = 'on';
     if (row.stage === 'checked') { s.Wait = 'done'; s.Checks = 'done'; }
-    if (row.stage === 'suppressed' && row.at === 'gate') { s.Wait = 'done'; s.Checks = 'stop'; }
+    if (row.stage === 'suppressed' && (row.at === 'gate' || row.at === 'lock')) { s.Wait = 'done'; s.Checks = 'stop'; }
+    // Bought while the message was being prepared: the final re-check stops delivery.
+    if (row.stage === 'suppressed' && row.at === 'final_check') { s.Message = 'done'; s.Delivery = 'stop'; }
     if (row.stage === 'sent') { s.Message = 'done'; s.Delivery = 'done'; }
     if (row.stage === 'failed') s.Delivery = 'stop';
   }

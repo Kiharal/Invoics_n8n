@@ -27,6 +27,16 @@ services:
     ports: ["11434:11434"]
     volumes:
       - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
+    # NVIDIA GPU via the Docker nvidia runtime. Remove this block on machines without one.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: unless-stopped
 
 volumes:

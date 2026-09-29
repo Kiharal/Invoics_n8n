@@ -17,7 +17,12 @@ cp .env.example .env
 docker compose up -d --build
 docker compose exec ollama ollama pull qwen2.5:7b      # or set OLLAMA_URL to the stub, see .env.example
 docker compose exec n8n n8n import:workflow --separate --input=/workflows
+docker compose exec n8n n8n publish:workflow --id=yakPipeline00001
+docker compose exec n8n n8n publish:workflow --id=yakWinbackScan01
+docker compose restart n8n
 ```
+
+On Windows Git Bash, prefix the `exec` lines with `MSYS_NO_PATHCONV=1`, otherwise `/workflows` is rewritten to a Windows path and the import silently finds 0 workflows. `ollama list` must show the model; the backend logs `AI warm-up: ok` at start, or the reason it failed (every AI nudge then goes out as the fallback template).
 
 1. Open http://localhost:5678, create the owner account.
 2. Open **yak-engine-pipeline** and **yak-winback-scan** and activate (publish) both. `yak-error-alerts` does not need activating; check the pipeline's settings list it as the error workflow.
@@ -56,6 +61,7 @@ backend/data/       Catalog (real Yakwetu titles) and demo users
 workflows/          n8n workflows (generated, importable)
 tools/build-workflows.js   Source for the workflows. Edit here, run `node tools/build-workflows.js`
 tools/harness.js    Test-only runner that executes the workflow JSON without n8n
+tools/stress.js     Fires overlapping scenarios and checks every rule against the log (resets state!)
 docs/               decisions.md, roadmap.md, contracts
 ```
 
@@ -65,10 +71,16 @@ docs/               decisions.md, roadmap.md, contracts
 - Delivery adapters (Mailtrap SMTP, WhatsApp Cloud API) live in the backend at `POST /api/deliver`. n8n still decides whether, what and which channel. Credentials stay in one `.env`.
 - Win-back scan endpoint is `GET /api/users-inactive` (avoids clashing with `/api/users/:id`).
 - The LLM returns `pick_title_id`, `reason`, `message` only. Channel is a cost rule applied in n8n, not a model decision. n8n appends the tracked link, so the model never writes URLs.
-- One `GET /api/context` call after the wait returns user, consent, purchase status and catalog.
+- One `GET /api/context` call after the wait returns user, consent, purchase status, catalog and a `profile` (favourite genre from purchases, owned titles, recent activity).
+- The model gets a JSON brief: viewer, situation, time of day, and up to 5 candidates, each with its story, cast and a rule-written `why_for_viewer` (previewed it, shares an actor with a film they own, same genre, their language). Ollama `format` is a JSON schema whose `pick_title_id` is an enum of the candidate ids.
+- Extra guardrails: the message must name the picked film exactly once and exactly as written; may mention other films only if the viewer owns or recently touched them; must not claim feelings ("you loved") or facts the brief never gave (director, awards, twists, ending); no generic filler ("check it out"), no links, no example leak, and any KES figure must be real. A rejected message gets ONE retry with the rejection reason; after that the fallback template goes out (personal too: name, film, story). A failed or timed-out model call skips the retry.
+- Sheng speakers get English with a Sheng greeting: qwen2.5:7b writes poor Sheng.
+- Nudge lock: one browse/sign-up nudge per viewer and title, one win-back per viewer, per 24 h real (`compress(1440)` = 37.1 s demo). Utility messages are never locked.
+- Final purchase re-check right before delivery (`GET /api/purchase-check`), because the AI call takes seconds.
+- The delivery adapter refuses any channel the viewer has not consented to, as a last line of defence.
 
 ## Before Friday
 
-- **KES prices in `backend/data/catalog.json` are placeholders** in the KES 5 to 199 range. Replace with the prices shown on the site.
-- The workflow JSON was checked against the node definitions in n8n-nodes-base 2.15.1 and the logic was tested end to end with `tools/harness.js`, but it has not been imported into a running n8n yet. Import and run the demo script once today.
+- Prices, synopses and cast in `backend/data/catalog.json` were taken from the title pages on 28 Sep 2026. THE PRIEST IS DEAD shows no price on its page: KES 199 is still a placeholder (`price_confirmed: false`).
+- Run `node tools/stress.js` against the real stack after any change (24 overlapping events, malformed input, purchase during the wait, duplicate race). It must end with `ALL CHECKS PASSED`.
 - Test the real model's Sheng output before keeping Wanjiru in the script.
