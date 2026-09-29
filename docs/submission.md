@@ -47,7 +47,7 @@ storefront event -> backend -> n8n webhook
 1. **Admit the event.** The webhook takes the event in. *Settings* and *Branch config* turn it into a branch with its real delay. *Drop duplicates* and *Admit* ignore repeated event ids. *Log admit* writes the first row.
 2. **Wait, then re-check.** *Wait (compressed)* holds the run for the compressed delay. *Context* then reloads the viewer, consent and purchases fresh from the platform.
 3. **Decide.** *Policy gate* re-checks the purchase, checks consent, picks the channel and builds the AI brief. *Nudge lock* and *Lock check* allow one nudge per viewer and title. *Log decision* writes why.
-4. **Write the message.**
+4. **Write the message.** *AI lane?* splits the branches:
    - AI branches: *Ask the model*, then *Guardrails*. On a rejection, *Retry?* sends one retry with the reason (*Ask again*, then *Guardrails (retry)*), and after that the fallback template.
    - Payment, device and sign-up branches: *Template message*.
 5. **Last check and send.** *Final re-check* and *Still unbought?* catch a purchase made while the message was being prepared. *Deliver* sends; otherwise *Log late stop* records why nothing went out.
