@@ -115,15 +115,25 @@
     </div>
   </div>
   <div class="field">
+    <span>Pay with</span>
+    <div class="listbox" data-listbox="method" data-value="mpesa">
+      <button class="listbox-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="listbox-value">M-Pesa</span></button>
+      <ul class="listbox-menu" hidden>
+        <li data-value="mpesa">M-Pesa</li>
+        <li data-value="bonga">Bonga points</li>
+        <li data-value="visa">Visa</li>
+        <li data-value="mastercard">Mastercard</li>
+      </ul>
+    </div>
+  </div>
+  <div class="field">
     <span>What happens at payment</span>
     <div class="listbox" data-listbox="payment" data-value="success">
-      <button class="listbox-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="listbox-value">M-Pesa payment goes through</span></button>
+      <button class="listbox-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="listbox-value">Payment goes through</span></button>
       <ul class="listbox-menu" hidden>
-        <li data-value="success">M-Pesa payment goes through</li>
-        <li data-value="stk_timeout">M-Pesa prompt times out</li>
-        <li data-value="wrong_pin">Wrong M-Pesa PIN</li>
-        <li data-value="insufficient_funds">Not enough M-Pesa balance</li>
-        <li data-value="card_declined">Card declined</li>
+        <li data-value="success">Payment goes through</li>
+        <li data-value="not_completed">Payment does not complete</li>
+        <li data-value="card_declined" hidden>Card declined</li>
       </ul>
     </div>
   </div>

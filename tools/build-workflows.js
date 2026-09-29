@@ -193,13 +193,18 @@ function candidates() {
 }
 
 // 4. Templates (transactional lanes must be exact, D5)
-const PAYMENT = {
-  stk_timeout: (t) => 'Your M-Pesa prompt for ' + t.name + ' timed out before the PIN was entered. Nothing was charged. Tap BUY again and enter your PIN within 60 seconds.',
-  wrong_pin: (t) => 'The M-Pesa PIN for ' + t.name + ' was not accepted. Nothing was charged. Tap BUY again and re-enter your PIN carefully.',
-  insufficient_funds: (t) => 'Your M-Pesa balance was not enough for ' + t.name + ' (KES ' + t.price_kes + '). Nothing was charged. Top up, or pay by card, then tap BUY again.',
-  card_declined: (t) => 'Your card was declined for ' + t.name + '. Nothing was charged. You can pay with M-Pesa instead: tap BUY and choose M-Pesa.',
-  unknown: (t) => 'Your payment for ' + t.name + ' did not go through. Nothing was charged. Tap BUY to try again, with M-Pesa or a card.',
-};
+// Payment rescue knows only two outcomes: the payment did not complete, or a card was declined.
+// Why an M-Pesa or Bonga prompt did not complete (PIN, balance, timeout) is the customer's own business, so no message names it.
+const PAY_METHOD = { mpesa: 'M-Pesa', bonga: 'Bonga points', visa: 'Visa', mastercard: 'Mastercard' };
+const PAY_OTHERS = { mpesa: 'Bonga points or a card', bonga: 'M-Pesa or a card', visa: 'M-Pesa, Bonga points or another card', mastercard: 'M-Pesa, Bonga points or another card' };
+function paymentText(t, method, reason) {
+  const m = PAY_METHOD[method];
+  if (!m) return 'Your payment for ' + t.name + ' did not go through. Nothing was charged. Tap BUY to try again with M-Pesa, Bonga points, Visa or Mastercard.';
+  const what = reason === 'card_declined' && (method === 'visa' || method === 'mastercard')
+    ? 'Your ' + m + ' card was declined for ' + t.name
+    : 'Your ' + m + ' payment for ' + t.name + ' did not go through';
+  return what + '. Nothing was charged. Tap BUY to try again, or pay with ' + PAY_OTHERS[method] + '.';
+}
 const DEVICE = {
   android: (t, l) => 'YAKWETU plays on Android. Install the app to watch ' + t.name + ': ' + s.android_app_url + '\\nOr open this link in Chrome: ' + l,
   desktop_non_chrome: (t, l) => 'YAKWETU plays in Google Chrome. Open this link in Chrome to finish buying ' + t.name + ': ' + l,
@@ -238,7 +243,7 @@ if (c.branch === 'B_payment' || c.branch === 'B_device') {
   if (!channel) return stop('no_consent', u.name + ' has no channel we may use. Nothing sent.');
   const l = link(title, channel);
   const text = c.branch === 'B_payment'
-    ? (PAYMENT[evt.context.failure_reason] || PAYMENT.unknown)(title) + '\\n' + l
+    ? paymentText(title, evt.context.payment_method, evt.context.failure_reason) + '\\n' + l
     : (DEVICE[evt.context.platform] || DEVICE.unknown)(title, l);
   delivery = { subject: c.branch === 'B_payment' ? 'Your payment for ' + title.name + ' did not go through' : 'How to watch ' + title.name, message: text, source: 'template' };
 } else if (c.branch === 'signup_rescue') {

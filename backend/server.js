@@ -236,7 +236,11 @@ function describeEvent(evt, u, t) {
   switch (evt.event) {
     case 'preview_completed': return `${u.name} watched the free preview of ${name} and left without buying`;
     case 'title_viewed': return `${u.name} viewed ${name} and left`;
-    case 'payment_failed': return `${u.name}'s payment for ${name} failed (${evt.context.failure_reason})`;
+    case 'payment_failed': {
+      const method = { mpesa: 'M-Pesa', bonga: 'Bonga points', visa: 'Visa', mastercard: 'Mastercard' }[evt.context.payment_method];
+      if (evt.context.failure_reason === 'card_declined') return `${u.name}'s ${method ? method + ' ' : ''}card was declined for ${name}`;
+      return `${u.name}'s ${method ? method + ' ' : ''}payment for ${name} did not complete`;
+    }
     case 'unsupported_device': return `${u.name} tried to buy ${name} on an unsupported device (${evt.context.platform})`;
     case 'auth_abandoned': return `${u.name} hit the sign-in page from BUY on ${name} and left`;
     case 'winback_due': return `Scheduler found ${u.name} inactive past the win-back threshold`;

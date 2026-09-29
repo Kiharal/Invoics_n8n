@@ -46,7 +46,7 @@ Start win-back first so it lands last.
 Keep the storefront and `/logs` open side by side.
 
 1. **Win-back:** On Simulator, open the person menu → Kevo → Quiet 30 days. The new log row opens on its own; countdown starts at 54.5 s.
-2. **Payment rescue:** Amina, BUY 40 STICKS. In checkout pick "M-Pesa prompt times out", Pay. Message in 3.5 s. Then repeat and pick "goes through" during the wait on a preview to show the re-check stopping a nudge.
+2. **Payment rescue:** Amina, BUY 40 STICKS. In checkout pay with M-Pesa, pick "Payment does not complete", Pay. Message in 3.5 s. Then repeat and pick "goes through" during the wait on a preview to show the re-check stopping a nudge.
 3. **Device bridge:** Brian, set device to "iPhone or iPad", BUY. Close the playback popup. The iPhone counter on Logs goes up.
 4. **Browse recovery (AI):** Amina, Preview on THE PRIEST IS DEAD, Leave. Talk through the guardrails during the 24.5 s wait. Then Otieno (no consent: held back) and Wanjiru (WhatsApp only, KUTU is below the price floor, so the engine pitches a title that justifies a paid message).
 5. **Sign-up rescue:** untick Signed in, BUY, "Leave this page".

@@ -48,10 +48,20 @@ async function main() {
 
   // S1 burst: every branch, several users, all at once.
   const burst = [];
-  for (const [reason, user] of [['stk_timeout', 'u_amina'], ['wrong_pin', 'u_brian'], ['insufficient_funds', 'u_wanjiru'], ['card_declined', 'u_kevo']]) {
-    burst.push(fire('pay-' + reason, { event: 'payment_failed', user_id: user, title_id: 't_40_sticks', context: { failure_reason: reason } },
-      user === 'u_kevo' ? is('suppressed', 'already_purchased') : sent));
+  // Payment rescue: two outcomes only. The message must name the method, and never guess the customer's own reason (PIN, balance).
+  const payMsg = (want) => (rows) => rows.some((r) => r.stage === 'sent' && want.test(r.message) && !/PIN|balance|top up|timed out/i.test(r.message));
+  for (const [method, reason, user, want] of [
+    ['mpesa', 'not_completed', 'u_amina', /Your M-Pesa payment for .+ did not go through\. Nothing was charged\..*Bonga points or a card/],
+    ['bonga', 'not_completed', 'u_brian', /Your Bonga points payment for .+ did not go through\..*M-Pesa or a card/],
+    ['visa', 'card_declined', 'u_wanjiru', /Your Visa card was declined for .+\. Nothing was charged\..*another card/],
+    ['mastercard', 'card_declined', 'u_kevo', null],
+  ]) {
+    burst.push(fire('pay-' + method, { event: 'payment_failed', user_id: user, title_id: 't_40_sticks', context: { payment_method: method, failure_reason: reason } },
+      want ? payMsg(want) : is('suppressed', 'already_purchased')));
   }
+  // M-Pesa cannot be "declined": a stray card_declined on a non-card method reads as not completed.
+  burst.push(fire('pay-bonga-declined', { event: 'payment_failed', user_id: 'u_amina', title_id: 't_kizingo', context: { payment_method: 'bonga', failure_reason: 'card_declined' } },
+    payMsg(/Your Bonga points payment for .+ did not go through/), { direct: true }));
   for (const platform of ['android', 'desktop_non_chrome', 'ios']) {
     burst.push(fire('device-' + platform, { event: 'unsupported_device', user_id: 'u_brian', title_id: 't_kizingo', context: { platform } }, sent));
   }
@@ -72,15 +82,15 @@ async function main() {
   // S3 same event_id twice at the same instant -> exactly one duplicate.
   const dupId = eid('dup');
   expected.set(dupId, { tag: 'dup-race', expect: (rows) => rows.filter((r) => r.stage === 'duplicate').length === 1 && rows.filter((r) => r.stage === 'sent').length === 1 });
-  const dupBody = { event_id: dupId, event: 'payment_failed', user_id: 'u_amina', title_id: 't_why_u_hate', context: { failure_reason: 'wrong_pin' } };
+  const dupBody = { event_id: dupId, event: 'payment_failed', user_id: 'u_amina', title_id: 't_why_u_hate', context: { payment_method: 'mpesa', failure_reason: 'not_completed' } };
   burst.push(api('/api/events', dupBody), api('/api/events', dupBody));
 
   // S4 purchase during the wait -> stopped at the gate.
   burst.push(fire('buy-during-wait', { event: 'preview_completed', user_id: 'u_amina', title_id: 't_family_meeting', context: {} }, is('suppressed', 'already_purchased')));
 
   // S6 malformed events straight to the webhook: every one must end in a logged stop, never a workflow error.
-  burst.push(fire('bad-unknown-user', { event: 'payment_failed', user_id: 'u_nobody', title_id: 't_teka', context: { failure_reason: 'wrong_pin' } }, is('suppressed', 'no_context'), { direct: true }));
-  burst.push(fire('bad-unknown-title', { event: 'payment_failed', user_id: 'u_amina', title_id: 't_nope', context: { failure_reason: 'wrong_pin' } }, is('suppressed', 'unknown_title'), { direct: true }));
+  burst.push(fire('bad-unknown-user', { event: 'payment_failed', user_id: 'u_nobody', title_id: 't_teka', context: { payment_method: 'mpesa', failure_reason: 'not_completed' } }, is('suppressed', 'no_context'), { direct: true }));
+  burst.push(fire('bad-unknown-title', { event: 'payment_failed', user_id: 'u_amina', title_id: 't_nope', context: { payment_method: 'mpesa', failure_reason: 'not_completed' } }, is('suppressed', 'unknown_title'), { direct: true }));
   burst.push(fire('bad-no-title', { event: 'payment_failed', user_id: 'u_amina', context: {} }, is('suppressed', 'invalid_event'), { direct: true }));
   burst.push(fire('bad-unknown-event', { event: 'rocket_launched', user_id: 'u_amina' }, is('suppressed', 'invalid_event'), { direct: true }));
   burst.push(fire('bad-context-string', { event: 'payment_failed', user_id: 'u_brian', title_id: 't_teka', context: 'oops' }, sent, { direct: true }));

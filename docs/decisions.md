@@ -133,9 +133,9 @@ real_minutes = e^(demo_seconds / 5.1) − 1      (inverse, for display)
 - Note: preview-failure users (site finding) look the same as uninterested users until the storefront can report `preview_failed`.
 
 **B. Payment rescue**
-- Trigger: `payment_failed` with a `failure_reason` (STK timeout, wrong PIN, insufficient funds, card declined).
+- Trigger: `payment_failed` with a `payment_method` (M-Pesa, Bonga points, Visa, Mastercard) and one of two outcomes: `not_completed` or `card_declined` (cards only). See D11.
 - Delay: 1 min real, giving the user a moment to retry on their own before the re-check.
-- Message: troubleshooting steps matched to the reason, plus an alternative payment path. No promotional content.
+- Message: nothing was charged, try again, or pay another way (the other methods). It never names a reason. No promotional content.
 
 **B sub-case: unsupported device**
 - Trigger: `unsupported_device` at BUY.
@@ -182,6 +182,15 @@ real_minutes = e^(demo_seconds / 5.1) − 1      (inverse, for display)
 - Purchase is re-checked again right before delivery; the delivery adapter refuses channels without consent.
 - `tools/stress.js` checks all of the above against the log.
 
+### D11. Payment rescue has two outcomes (2026-09-29)
+
+**Problem:** the demo offered "wrong PIN" and "not enough balance" as failure reasons, and M-Pesa was the only method besides a generic card.
+
+**Decision:**
+- Why an M-Pesa or Bonga prompt did not complete (PIN, balance, timeout, cancel) is the customer's own business. Daraja cannot read a customer's wallet balance, and a message that names the reason reads as intrusive. The engine handles only: the payment went through (no nudge) or it did not complete; plus a declined Visa or Mastercard.
+- Payment methods follow the live site: M-Pesa, Bonga points, Visa, Mastercard. The message names the method used and offers the others.
+- Note for the integration: Daraja's STK callback does return a result code (e.g. 1032 cancelled, 1037 timeout). The storefront maps any non-zero code to `not_completed`; the raw code is not passed on.
+
 ---
 
 ## 3. Deferred (later this week, if time allows)
@@ -200,7 +209,7 @@ real_minutes = e^(demo_seconds / 5.1) − 1      (inverse, for display)
 
 1. Can the storefront emit `preview_failed`, `unsupported_device` and `auth_abandoned`? If not, what can GA4/GTM see today?
 2. What does the `ref` parameter on /login and /register encode, and does it survive sign-up?
-3. Checkout currency and methods (KES via M-Pesa STK, cards), and typical failure/timeout rates?
+3. Checkout methods are M-Pesa, Bonga points, Visa and Mastercard (KES). Typical failure rates per method? Does a failed Bonga payment go through the same STK flow?
 4. Consent status of existing users for WhatsApp and email marketing?
 5. Is there an iOS roadmap?
 6. Who owns user and payment data given the MyMovies.Africa backend?

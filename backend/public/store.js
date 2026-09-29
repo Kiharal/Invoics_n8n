@@ -103,8 +103,16 @@ async function pay() {
     await api('/api/purchases', { method: 'POST', body: { user_id: current, title_id: t.id } });
     await load();
   } else {
-    await fire('payment_failed', t.id, { failure_reason: outcome, payment_method: outcome === 'card_declined' ? 'card' : 'mpesa' });
+    await fire('payment_failed', t.id, { failure_reason: outcome, payment_method: listboxValue($('[data-listbox="method"]')) });
   }
+}
+
+// Only Visa and Mastercard can be declined; M-Pesa and Bonga points either complete or not.
+function syncPaymentOutcomes() {
+  const card = ['visa', 'mastercard'].includes(listboxValue($('[data-listbox="method"]')));
+  const outcome = $('[data-listbox="payment"]');
+  $('[data-value="card_declined"]', outcome).hidden = !card;
+  if (!card && listboxValue(outcome) === 'card_declined') setListbox(outcome, 'not_completed', true);
 }
 
 function showToast(row) {
@@ -157,6 +165,7 @@ $('#signedIn').onchange = (e) => {
   session.setSigned(map);
 };
 $('[data-listbox="device"]').addEventListener('change', (e) => session.setDevice(listboxValue(e.currentTarget)));
+$('[data-listbox="method"]').addEventListener('change', syncPaymentOutcomes);
 $('#goQuiet').onclick = () => {
   api(`/api/users/${current}/inactive`, { method: 'POST' });
 };

@@ -35,7 +35,8 @@ Freeze these in `/docs/contracts.md` as v1. Any change after Sunday needs both t
   "user_id": "u_001",
   "title_id": "t_40sticks",
   "context": {
-    "failure_reason": "stk_timeout | wrong_pin | insufficient_funds | card_declined | null",
+    "payment_method": "mpesa | bonga | visa | mastercard | null",
+    "failure_reason": "not_completed | card_declined | null",
     "platform": "android | ios | desktop_non_chrome | null",
     "seconds_watched": 90,
     "ref": "t_40sticks"
