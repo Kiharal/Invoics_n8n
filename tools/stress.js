@@ -7,7 +7,7 @@
 // WARNING: resets the backend state (logs, purchases, consent) at the start.
 const BACKEND = process.env.BACKEND_URL || 'http://localhost:3000';
 const WEBHOOK = process.env.WEBHOOK_URL || 'http://localhost:5678/webhook/yak/events';
-const KEY = process.env.YAK_KEY || '';
+const { KEY } = require('./stress/lib'); // env YAK_KEY, else the one in .env
 const MIN_KES = Number(process.env.WHATSAPP_MIN_KES || 149);
 const TIMEOUT_S = Number(process.env.STRESS_TIMEOUT_S || 180);
 
@@ -39,6 +39,7 @@ async function main() {
   const health = await api('/api/health');
   console.log('backend', BACKEND, JSON.stringify(health));
   await api('/api/admin/reset', {});
+  await api('/api/admin/email', { live: false }); // don't burn the Mailtrap quota
   const catalog = await api('/api/catalog');
   const price = Object.fromEntries(catalog.map((t) => [t.id, t.price_kes]));
   const t0 = Date.now();

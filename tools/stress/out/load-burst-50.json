@@ -1,0 +1,194 @@
+{
+  "label": "burst-50",
+  "config": {
+    "rate": 1,
+    "duration": 60,
+    "burst": 50,
+    "concurrency": 50,
+    "mix": {
+      "payment": 2,
+      "device": 1,
+      "signup": 1,
+      "browse": 1
+    }
+  },
+  "fired": 50,
+  "post_errors": 0,
+  "fire_seconds": 5,
+  "post_ms_p50": 3309,
+  "post_ms_p95": 4921,
+  "completed": 50,
+  "lost": 0,
+  "outcome": {
+    "sent": 25,
+    "suppressed:no_consent": 9,
+    "sent:Same genre and suspenseful plot like THE COLLECTOR.": 1,
+    "suppressed:already_purchased": 4,
+    "sent:Wanjiru tried to buy other films and watched the preview, so this thriller with comedy is a good fit.": 1,
+    "sent:rejected twice: names_another_title: KIZINGO, then names_another_title: KIZINGO": 1,
+    "sent:Brian opened THE COLLECTOR, and it's in his preferred genre of horror, making it a perfect fit.": 1,
+    "suppressed:already_nudged": 5,
+    "sent:Kevo watched the preview of JONAROBI and has a taste for comedy.": 1,
+    "sent:rejected twice: title_not_written_exactly, then title_not_written_exactly": 1,
+    "sent:Kevo opened the page for THE COLLECTOR and has a history with horror films like THE COLLECTOR.": 1
+  },
+  "fired_to_sent_s": {
+    "p50": 7.568,
+    "p95": 63.769,
+    "max": 68.229
+  },
+  "per_kind": {
+    "payment": {
+      "fired": 20,
+      "sent": 14,
+      "p50": 7.059,
+      "p95": 8.572,
+      "max": 8.572
+    },
+    "device": {
+      "fired": 10,
+      "sent": 6,
+      "p50": 3.205,
+      "p95": 3.895,
+      "max": 3.895
+    },
+    "signup": {
+      "fired": 10,
+      "sent": 5,
+      "p50": 18.142,
+      "p95": 19.942,
+      "max": 19.942
+    },
+    "browse": {
+      "fired": 10,
+      "sent": 7,
+      "p50": 49.801,
+      "p95": 68.229,
+      "max": 68.229
+    }
+  },
+  "ai": 5,
+  "fallback": 2,
+  "fallback_reasons": {
+    "rejected twice": 2
+  },
+  "error_rows": 0,
+  "workflow_errors": 0,
+  "total_seconds": 72.4,
+  "docker_before": [
+    {
+      "name": "backend-1",
+      "mem": "27.55MiB",
+      "cpu": "0.00%"
+    },
+    {
+      "name": "n8n-1",
+      "mem": "352.9MiB",
+      "cpu": "0.22%"
+    },
+    {
+      "name": "ollama-1",
+      "mem": "1.678GiB",
+      "cpu": "0.09%"
+    }
+  ],
+  "docker_during": [
+    {
+      "t": 15.011,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "19.93MiB",
+          "cpu": "0.01%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "869.8MiB",
+          "cpu": "0.19%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.678GiB",
+          "cpu": "0.10%"
+        }
+      ]
+    },
+    {
+      "t": 30.013,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "20.64MiB",
+          "cpu": "0.01%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "598.2MiB",
+          "cpu": "0.69%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.764GiB",
+          "cpu": "560.72%"
+        }
+      ]
+    },
+    {
+      "t": 45.015,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "21.08MiB",
+          "cpu": "0.01%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "526.4MiB",
+          "cpu": "0.44%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.82GiB",
+          "cpu": "534.26%"
+        }
+      ]
+    },
+    {
+      "t": 60.018,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "22.34MiB",
+          "cpu": "0.02%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "499.7MiB",
+          "cpu": "1.86%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.831GiB",
+          "cpu": "596.50%"
+        }
+      ]
+    }
+  ],
+  "docker_after": [
+    {
+      "name": "backend-1",
+      "mem": "21.28MiB",
+      "cpu": "0.00%"
+    },
+    {
+      "name": "n8n-1",
+      "mem": "473.2MiB",
+      "cpu": "0.15%"
+    },
+    {
+      "name": "ollama-1",
+      "mem": "1.851GiB",
+      "cpu": "0.08%"
+    }
+  ]
+}

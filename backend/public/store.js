@@ -1,4 +1,7 @@
 let users = [], catalog = [], current = null, pendingTitle = null;
+// The nudge id each viewer last received per title. Buying that title stands in for tapping the link in the
+// message (the real link carries ?nid=), so the backend can credit the purchase to the nudge.
+const lastNudge = {};
 
 const me = () => users.find((u) => u.id === current);
 const isIn = (id) => session.signed()[id] !== false;
@@ -100,7 +103,7 @@ async function pay() {
   closeDialog('#checkout');
   if (!t) return;
   if (outcome === 'success') {
-    await api('/api/purchases', { method: 'POST', body: { user_id: current, title_id: t.id } });
+    await api('/api/purchases', { method: 'POST', body: { user_id: current, title_id: t.id, nid: lastNudge[current + '|' + t.id] } });
     await load();
   } else {
     await fire('payment_failed', t.id, { failure_reason: outcome, payment_method: listboxValue($('[data-listbox="method"]')) });
@@ -199,7 +202,7 @@ $('#payCancel').onclick = () => closeDialog('#checkout');
   await load();
   const board = LogBoard({ compact: true });
   await board.start((row) => {
-    if (row.stage === 'sent') showToast(row);
+    if (row.stage === 'sent') { showToast(row); if (row.nudge_id) lastNudge[row.user_id + '|' + row.title_id] = row.nudge_id; }
     if (row.stage === 'purchased' || row.stage === 'sent') load();
   });
 })();

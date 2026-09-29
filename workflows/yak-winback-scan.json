@@ -153,7 +153,8 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "errorWorkflow": "yakErrorAlerts01"
+    "errorWorkflow": "yakErrorAlerts01",
+    "saveDataSuccessExecution": "none"
   },
   "pinData": {},
   "tags": []

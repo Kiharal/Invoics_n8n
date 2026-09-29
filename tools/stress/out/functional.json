@@ -1,0 +1,194 @@
+[
+  {
+    "id": "F1a",
+    "name": "Payment rescue mpesa not_completed (u_amina)",
+    "expected": "sent via whatsapp, template names method, no promotion, wait 3.5 s",
+    "actual": "sent via whatsapp [template]; wait 3.6 s; promo=false",
+    "status": "PASS",
+    "evidence": "Your M-Pesa payment for LOST IN TIME did not go through. Nothing was charged. Tap BUY to try again, or pay with Bonga points or a card."
+  },
+  {
+    "id": "F1b",
+    "name": "Payment rescue bonga not_completed (u_brian)",
+    "expected": "sent via email, template names method, no promotion, wait 3.5 s",
+    "actual": "sent via email [template]; wait 3.6 s; promo=false",
+    "status": "PASS",
+    "evidence": "Your Bonga points payment for LOST IN TIME did not go through. Nothing was charged. Tap BUY to try again, or pay with M-Pesa or a card."
+  },
+  {
+    "id": "F1c",
+    "name": "Payment rescue visa card_declined (u_kevo)",
+    "expected": "sent via whatsapp, template names method, no promotion, wait 3.5 s",
+    "actual": "suppressed:already_purchased; wait ? s; promo=undefined",
+    "status": "FAIL",
+    "evidence": "[\"fired\",\"waiting\",\"suppressed:already_purchased\"]"
+  },
+  {
+    "id": "F1d",
+    "name": "Payment rescue mastercard card_declined (u_amina)",
+    "expected": "sent via whatsapp, template names method, no promotion, wait 3.5 s",
+    "actual": "sent via whatsapp [template]; wait 3.6 s; promo=false",
+    "status": "PASS",
+    "evidence": "Your Mastercard card was declined for TEKA. Nothing was charged. Tap BUY to try again, or pay with M-Pesa, Bonga points or another card."
+  },
+  {
+    "id": "F2-android",
+    "name": "Device sub-case android",
+    "expected": "sent (email for Brian), platform-specific text, ~0 s wait",
+    "actual": "sent via email [template]; fired->sent 0.4 s",
+    "status": "PASS",
+    "evidence": "YAKWETU plays on Android. Install the app to watch KIZINGO: https://www.yakwetu.africa"
+  },
+  {
+    "id": "F2-desktop_non_chrome",
+    "name": "Device sub-case desktop_non_chrome",
+    "expected": "sent (email for Brian), platform-specific text, ~0 s wait",
+    "actual": "sent via email [template]; fired->sent 0.4 s",
+    "status": "PASS",
+    "evidence": "YAKWETU plays in Google Chrome. Open this link in Chrome to finish buying KIZINGO: https://www.yakwetu.africa/view/1c0e952a8c26d9bd?utm_source=yak_engine&utm_medium=email&utm_campaign=B_device&nid=n_vik0beuw"
+  },
+  {
+    "id": "F2-ios",
+    "name": "Device sub-case ios",
+    "expected": "sent (email for Brian), platform-specific text, ~0 s wait",
+    "actual": "sent via email [template]; fired->sent 0.4 s",
+    "status": "PASS",
+    "evidence": "YAKWETU does not play on iPhone or iPad yet. You are on the list and we will tell you when it does. Meanwhile KIZINGO plays in Chrome on any laptop: https://www.yakwetu.africa/view/1c0e952a8c26d9bd?utm_source=yak_engine&utm_medium=email&utm_campaign=B_device&nid=n_giebnlb5"
+  },
+  {
+    "id": "F2-counter",
+    "name": "iOS demand counter",
+    "expected": "ios_waitlist=1, android=1, desktop_non_chrome=1",
+    "actual": "{\"ios\":1,\"android\":1,\"desktop\":1}",
+    "status": "PASS",
+    "evidence": "/api/stats"
+  },
+  {
+    "id": "F3a",
+    "name": "Browse recovery, Amina (all consent) THE PRIEST IS DEAD KES 199",
+    "expected": "sent, source ai or fallback with reason, wait 24.5 s",
+    "actual": "sent:She watched the preview and it's in the same genre as THE PRIEST IS DEAD. via whatsapp [ai]; wait 24.6 s; checked->sent 12.9 s; reason=She watched the preview and it's in the same genre as THE PRIEST IS DEAD.",
+    "status": "PASS",
+    "evidence": "Amina, you saw the preview of THE PRIEST IS DEAD. Remember that murder inside the police station? Same thriller vibes. No subscription, pay once with M-Pesa and own it forever."
+  },
+  {
+    "id": "F3b",
+    "name": "Browse recovery, Brian (email only) JONAROBI",
+    "expected": "sent, source ai or fallback with reason, wait 24.5 s",
+    "actual": "sent:Brian opened the page for JONAROBI and has a similar taste in comedy with FAMILY MEETING. via email [ai]; wait 24.7 s; checked->sent 22.6 s; reason=Brian opened the page for JONAROBI and has a similar taste in comedy with FAMILY MEETING.",
+    "status": "PASS",
+    "evidence": "Brian, you checked out JONAROBI and own FAMILY MEETING. It's about a man from Nairobi visiting his village, where his mother lives in poverty. No subscription needed, pay once and own it forever."
+  },
+  {
+    "id": "F3c",
+    "name": "Browse recovery, Wanjiru (WhatsApp only) previews KUTU KES 49",
+    "expected": "WhatsApp pitch of a title >= KES 149, or below_whatsapp_price_floor",
+    "actual": "sent:2nd try (1st rejected: claims_a_feeling: loved). KUTU was a drama, so something with comedy like TEKA would be a good fit. via whatsapp [ai] title=t_cards_on_the_table price=149",
+    "status": "PASS",
+    "evidence": "Wanjiru, you watched the preview of KUTU. How about trying CARDS ON THE TABLE? It's got comedy like TEKA and is in Sheng too. Pay once with M-Pesa and own it forever."
+  },
+  {
+    "id": "F3d",
+    "name": "Browse recovery, Otieno (no consent)",
+    "expected": "suppressed no_consent",
+    "actual": "suppressed:no_consent",
+    "status": "PASS",
+    "evidence": "Otieno has not agreed to marketing on any channel. Nothing sent."
+  },
+  {
+    "id": "F4",
+    "name": "Sign-up rescue, Amina KIENYEJI",
+    "expected": "sent via email, \"joining YAKWETU is free\", wait 15.5 s",
+    "actual": "sent via email [template]; wait 15.6 s",
+    "status": "PASS",
+    "evidence": "Amina, joining YAKWETU is free. KIENYEJI is waiting for you: Two university students fall madly in love despite coming from different tribes."
+  },
+  {
+    "id": "F9",
+    "name": "Duplicate event_id (sequential replay)",
+    "expected": "exactly 1 duplicate row, exactly 1 sent",
+    "actual": "duplicates=1 sent=1",
+    "status": "PASS",
+    "evidence": "fired, fired, waiting, duplicate:duplicate_event, checked via email, sent via email [template]"
+  },
+  {
+    "id": "F7-floor",
+    "name": "Marketing WhatsApp iff consent and pick price >= 149",
+    "expected": "every marketing send follows the rule",
+    "actual": "u_amina:t_priest_is_dead(199)->whatsapp u_brian:t_jonarobi(99)->email u_wanjiru:t_cards_on_the_table(149)->whatsapp",
+    "status": "PASS",
+    "evidence": "sent rows, branch A_browse/winback"
+  },
+  {
+    "id": "F5",
+    "name": "Purchase during the 24.5 s wait stops the nudge",
+    "expected": "suppressed already_purchased at gate",
+    "actual": "suppressed:already_purchased at gate",
+    "status": "PASS",
+    "evidence": "Brian already bought LOST IN TIME. Nothing sent."
+  },
+  {
+    "id": "F6a",
+    "name": "Consent flipped during wait (Amina WhatsApp off)",
+    "expected": "utility falls to SMS (logged)",
+    "actual": "sent via sms [template]",
+    "status": "PASS",
+    "evidence": "SMS is logged, not sent, in the demo (D6)"
+  },
+  {
+    "id": "F6b",
+    "name": "All consent removed during wait (Kevo)",
+    "expected": "suppressed no_consent",
+    "actual": "suppressed:no_consent",
+    "status": "PASS",
+    "evidence": "Kevo has no channel we may use. Nothing sent."
+  },
+  {
+    "id": "F8",
+    "name": "Win-back: Kevo armed, scan fires after compress(30 days)",
+    "expected": "winback_due fired at 54.5 s + up to 10 s scan interval, then sent",
+    "actual": "fired after 60.7 s; sent:Kevo owns multiple thrillers and THE PRIEST IS DEAD has a compelling crime story similar to 40 STICKS. via whatsapp [ai]",
+    "status": "PASS",
+    "evidence": "Kevo, you love thrillers, and THE PRIEST IS DEAD has a gripping crime story. Ellah Maina, from WHY U HATE, stars in it. Pay once with M-Pesa and own it forever."
+  },
+  {
+    "id": "F10b",
+    "name": "Panel AI switch \"bad\" on the Docker stack",
+    "expected": "fallback sent, reason logged",
+    "actual": "fallback | rejected twice: banned_phrase: Hurry, then banned_phrase: Hurry",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "F10s",
+    "name": "Panel AI switch \"slow\" on the Docker stack",
+    "expected": "fallback sent, reason logged",
+    "actual": "fallback | unusable_output: model call failed: timeout of 25000ms exceeded",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "F13",
+    "name": "Purchase via the nudge link is credited to the nudge",
+    "expected": "attributed=true, KES 49 on stats and funnel; a foreign nid is not credited; CSV export has the row",
+    "actual": "attributed=true, foreign nid attributed=false, stats KES 49, funnel B_payment purchases 1 KES 49, CSV lines 8",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "F14",
+    "name": "Consent change is recorded as evidence",
+    "expected": "consent_changed row with before, after, source",
+    "actual": "Brian opted in to WhatsApp; before.whatsapp=false after.whatsapp=true source=functional-test",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "F12",
+    "name": "Email lands in the Mailtrap sandbox",
+    "expected": "sent row delivery=live, message visible in the sandbox inbox",
+    "actual": "sent delivery=live (Mailtrap sandbox 5727366668); inbox: \"Your payment for KIZINGO did not go through\" to brian@demo.yakwetu.test",
+    "status": "PASS",
+    "evidence": ""
+  }
+]

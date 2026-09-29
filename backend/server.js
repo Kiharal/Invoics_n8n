@@ -38,6 +38,7 @@ function resetState() {
     logs: [],
     stats: { ios_waitlist: 0, desktop_non_chrome: 0, android: 0 },
     aiStubMode: 'good',
+    emailLive: true, // load and stress tools switch this off so they don't burn the Mailtrap quota
   };
   for (const u of state.users) for (const t of u.owned) state.purchases.add(`${u.id}|${t}`);
 }
@@ -112,10 +113,21 @@ app.get('/api/users/:id', requireKey, (req, res) => {
   const u = userById(req.params.id);
   u ? res.json(publicUser(u)) : res.status(404).json({ error: 'unknown user' });
 });
+// Consent changes are evidence: each one is logged with before, after and where it came from.
+const CHANNELS = ['whatsapp', 'sms', 'email'];
 app.post('/api/users/:id/consent', (req, res) => {
   const u = userById(req.params.id);
   if (!u) return res.status(404).json({ error: 'unknown user' });
-  Object.assign(u.consent, req.body || {});
+  const b = req.body || {};
+  const changes = CHANNELS.filter((c) => typeof b[c] === 'boolean' && b[c] !== u.consent[c]);
+  const before = { ...u.consent };
+  for (const c of changes) u.consent[c] = b[c];
+  if (changes.length) {
+    const label = { whatsapp: 'WhatsApp', sms: 'SMS', email: 'email' };
+    addLog({ stage: 'consent_changed', status: 'ok', user_id: u.id, before, after: { ...u.consent },
+      source: typeof b.source === 'string' ? b.source.slice(0, 40) : 'storefront',
+      message: `${u.name} ${changes.map((c) => (u.consent[c] ? 'opted in to ' : 'opted out of ') + label[c]).join(', ')}` });
+  }
   res.json(publicUser(u));
 });
 
@@ -153,18 +165,25 @@ app.post('/api/locks', requireKey, (req, res) => {
   res.json({ claimed: true, key });
 });
 
+// Attribution: a purchase that arrives with the nudge id from the message link (?nid=) is credited to that nudge,
+// if the nudge was really sent to this viewer for this title. Last-click, no holdout: attributed revenue, not lift.
 app.post('/api/purchases', (req, res) => {
   const { user_id, title_id, nid } = req.body || {};
   const u = userById(user_id);
   const t = titleById(title_id);
   if (!u || !t) return res.status(400).json({ error: 'unknown user or title' });
-  if (!state.purchases.has(`${u.id}|${t.id}`)) track(u, 'purchased', t.id);
+  const isNew = !state.purchases.has(`${u.id}|${t.id}`);
+  if (isNew) track(u, 'purchased', t.id);
   state.purchases.add(`${u.id}|${t.id}`);
   u.last_active_at = Date.now();
   if (u.winback) u.winback = null;
-  addLog({ stage: 'purchased', status: 'ok', user_id: u.id, title_id: t.id, nudge_id: nid || null,
-    message: `${u.name} bought ${t.name} for KES ${t.price_kes}` });
-  res.json({ ok: true });
+  const nudge = nid ? state.logs.find((l) => l.stage === 'sent' && l.nudge_id === nid && l.user_id === u.id && l.title_id === t.id) : null;
+  const credit = nudge && isNew && !state.logs.some((l) => l.stage === 'purchased' && l.nudge_id === nid);
+  addLog({ stage: 'purchased', status: 'ok', user_id: u.id, title_id: t.id, nudge_id: credit ? nid : null,
+    event_id: credit ? nudge.event_id : undefined, branch: credit ? nudge.branch : undefined, channel: credit ? nudge.channel : undefined,
+    attributed: Boolean(credit), revenue_kes: isNew ? t.price_kes : 0,
+    message: `${u.name} bought ${t.name} for KES ${t.price_kes}` + (credit ? ` from the ${nudge.channel} nudge (${nid})` : '') });
+  res.json({ ok: true, attributed: Boolean(credit) });
 });
 
 app.post('/api/dedupe', requireKey, (req, res) => {
@@ -199,6 +218,8 @@ app.post('/api/events', async (req, res) => {
   const b = req.body || {};
   const u = userById(b.user_id);
   if (!b.event || !u) return res.status(400).json({ error: 'event and a known user_id are required' });
+  if (typeof b.event !== 'string') return res.status(400).json({ error: 'event must be a string' });
+  if (b.event_id !== undefined && !/^[A-Za-z0-9._:-]{1,64}$/.test(String(b.event_id))) return res.status(400).json({ error: 'event_id must be 1-64 of A-Z a-z 0-9 . _ : -' });
   if (b.title_id && !titleById(b.title_id)) return res.status(400).json({ error: 'unknown title_id' });
   const evt = {
     event_id: b.event_id || crypto.randomUUID(),
@@ -256,8 +277,24 @@ if (env.SMTP_HOST) {
     auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
   });
 }
+// Mailtrap's Sandbox Sending API goes over HTTPS, so it works on networks that block outbound SMTP (most venue Wi-Fi).
+const MAILTRAP_API = env.MAILTRAP_API_TOKEN && env.MAILTRAP_TEST_INBOX_ID;
+const emailMode = () => (MAILTRAP_API ? 'mailtrap-api' : mailer ? 'smtp' : 'simulated');
 async function sendEmail(u, subject, text) {
-  if (!mailer) return { mode: 'simulated', detail: 'SMTP_HOST not set; message logged only' };
+  if (!state.emailLive) return { mode: 'simulated', detail: 'email switched off for this test run (POST /api/admin/email)' };
+  if (MAILTRAP_API) {
+    const from = (env.MAIL_FROM || 'YAKWETU <nudges@demo.yakwetu.test>').match(/^(?:(.*)<)?\s*([^<>\s]+@[^<>\s]+)\s*>?$/) || [];
+    const r = await fetch(`https://sandbox.api.mailtrap.io/api/send/${env.MAILTRAP_TEST_INBOX_ID}`, {
+      method: 'POST', headers: { Authorization: `Bearer ${env.MAILTRAP_API_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: { email: from[2] || 'nudges@demo.yakwetu.test', name: (from[1] || 'YAKWETU').trim() }, to: [{ email: u.email, name: u.name }],
+        subject, text, category: 'yak-engine' }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok || body.success === false) throw new Error('Mailtrap API ' + r.status + ': ' + JSON.stringify(body.errors || body).slice(0, 160));
+    return { mode: 'live', detail: 'Mailtrap sandbox ' + ((body.message_ids || [])[0] || 'accepted') };
+  }
+  if (!mailer) return { mode: 'simulated', detail: 'no MAILTRAP_API_TOKEN/MAILTRAP_TEST_INBOX_ID or SMTP_HOST set; message logged only' };
   const info = await mailer.sendMail({ from: env.MAIL_FROM || 'YAKWETU <nudges@demo.yakwetu.test>', to: u.email, subject, text });
   return { mode: 'live', detail: info.messageId };
 }
@@ -303,8 +340,24 @@ app.post('/api/deliver', requireKey, async (req, res) => {
   }
 });
 
+// ---------- AI: proxy to the real model, or the stub for guardrail drills ----------
+// n8n calls /ai/api/chat. "good" forwards to the real model (OLLAMA_URL); "bad" and "slow" answer from the stub,
+// so the panel can force a guardrail rejection or a timeout on the real stack.
+const REAL_MODEL = env.OLLAMA_URL && !env.OLLAMA_URL.includes('mock-ollama') && !env.OLLAMA_URL.includes('/ai') ? env.OLLAMA_URL : null;
+app.post('/ai/api/chat', async (req, res) => {
+  if (state.aiStubMode !== 'good' || !REAL_MODEL) return stubChat(req, res);
+  try {
+    const r = await fetch(`${REAL_MODEL}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body || {}), signal: AbortSignal.timeout(120000) });
+    res.status(r.status).type('application/json').send(await r.text());
+  } catch (e) {
+    res.status(502).json({ error: 'model unreachable: ' + e.message });
+  }
+});
+
 // ---------- offline AI stub (for machines without Ollama, and for guardrail drills) ----------
-app.post('/mock-ollama/api/chat', async (req, res) => {
+app.post('/mock-ollama/api/chat', (req, res) => stubChat(req, res));
+async function stubChat(req, res) {
   // The last message is the JSON brief built by the n8n Policy gate. The stub reuses its facts,
   // so offline demos still show a message tied to the viewer, but it is not a language model.
   const msgs = (req.body || {}).messages || [];
@@ -316,30 +369,64 @@ app.post('/mock-ollama/api/chat', async (req, res) => {
   const c = (brief.candidates || [])[0] || { id: "unknown", name: "this film", story: "" };
   const first = (brief.viewer || {}).first_name || 'Hi';
   const mode = state.aiStubMode;
-  if (mode === 'slow') await new Promise((r) => setTimeout(r, 25000));
+  // Longer than the pipeline's 25 s model timeout, so "Times out" really times out.
+  if (mode === 'slow') await new Promise((r) => setTimeout(r, 30000));
+  if (res.headersSent || res.destroyed) return;
   const message = mode === 'bad'
     ? `Hurry! Limited offer, 50% off ${c.name} expires tonight.`
     : `${first}, ${c.name}: ${c.story} Pay once with M-Pesa and it's yours forever.`;
   res.json({ model: 'stub', message: { role: 'assistant', content: JSON.stringify({ pick_title_id: c.id, reason: 'stub picked the first candidate: ' + (c.why_for_viewer || ''), message }) }, done: true });
-});
+}
 app.post('/api/admin/ai-stub-mode', (req, res) => {
   const mode = (req.body || {}).mode;
   if (!['good', 'bad', 'slow'].includes(mode)) return res.status(400).json({ error: 'mode must be good, bad or slow' });
   state.aiStubMode = mode;
   res.json({ mode });
 });
+app.post('/api/admin/email', (req, res) => {
+  state.emailLive = (req.body || {}).live !== false;
+  res.json({ live: state.emailLive, mode: emailMode() });
+});
 
 // ---------- demo admin ----------
+const attributed = () => state.logs.filter((l) => l.stage === 'purchased' && l.attributed);
 app.get('/api/stats', (req, res) => {
   const count = (stage) => state.logs.filter((l) => l.stage === stage).length;
-  res.json({ ...state.stats, sent: count('sent'), suppressed: count('suppressed'), failed: count('failed'), purchased: count('purchased'), aiStubMode: state.aiStubMode });
+  res.json({ ...state.stats, sent: count('sent'), suppressed: count('suppressed'), failed: count('failed'), purchased: count('purchased'),
+    attributed: attributed().length, attributed_kes: attributed().reduce((s, l) => s + (l.revenue_kes || 0), 0), aiStubMode: state.aiStubMode });
+});
+
+// Funnel per branch and channel, straight from the log: what came in, what was held and why, what went out, what it earned.
+app.get('/api/funnel', (req, res) => {
+  const f = {};
+  const row = (branch) => (f[branch] = f[branch] || { branch, events: 0, duplicates: 0, suppressed: {}, sent: {}, failed: 0, purchases: 0, revenue_kes: 0 });
+  const runs = new Map();
+  for (const l of state.logs) if (l.event_id && l.branch && !runs.has(l.event_id)) runs.set(l.event_id, l.branch);
+  for (const b of runs.values()) row(b).events++;
+  for (const l of state.logs) {
+    if (!l.branch) continue;
+    const r = row(l.branch);
+    if (l.stage === 'duplicate') r.duplicates++;
+    else if (l.stage === 'suppressed') r.suppressed[l.reason] = (r.suppressed[l.reason] || 0) + 1;
+    else if (l.stage === 'sent') r.sent[l.channel] = (r.sent[l.channel] || 0) + 1;
+    else if (l.stage === 'failed') r.failed++;
+    else if (l.stage === 'purchased' && l.attributed) { r.purchases++; r.revenue_kes += l.revenue_kes || 0; }
+  }
+  res.json(Object.values(f));
+});
+
+// Every log row as CSV, for the client's spreadsheet or GA4 import.
+app.get('/api/export.csv', (req, res) => {
+  const cols = ['id', 'ts', 'stage', 'status', 'reason', 'branch', 'event_id', 'nudge_id', 'user_id', 'title_id', 'channel', 'source', 'delivery', 'attributed', 'revenue_kes', 'message'];
+  const esc = (v) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) || /^[=+\-@]/.test(s) ? '"' + s.replace(/^([=+\-@])/, "'$1").replace(/"/g, '""') + '"' : s; };
+  res.type('text/csv').attachment('yak-engine-log.csv').send([cols.join(','), ...state.logs.map((l) => cols.map((c) => esc(l[c])).join(','))].join('\n'));
 });
 app.post('/api/admin/reset', (req, res) => {
   resetState();
   for (const c of clients) c.write(`event: reset\ndata: {}\n\n`);
   res.json({ ok: true });
 });
-app.get('/api/health', (req, res) => res.json({ ok: true, n8n: N8N_WEBHOOK_URL, smtp: Boolean(mailer), whatsapp: Boolean(env.WA_TOKEN) }));
+app.get('/api/health', (req, res) => res.json({ ok: true, n8n: N8N_WEBHOOK_URL, email: emailMode(), email_live: state.emailLive, smtp: Boolean(mailer), whatsapp: Boolean(env.WA_TOKEN), model: REAL_MODEL ? 'real' : 'stub', key_required: Boolean(YAK_KEY) }));
 
 // Load the model into memory up front, so the first AI nudge on stage is not a cold start.
 async function warmModel() {

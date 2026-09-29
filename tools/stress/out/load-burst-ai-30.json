@@ -1,0 +1,216 @@
+{
+  "label": "burst-ai-30",
+  "config": {
+    "rate": 1,
+    "duration": 60,
+    "burst": 30,
+    "concurrency": 50,
+    "mix": {
+      "browse": 1
+    }
+  },
+  "fired": 30,
+  "post_errors": 0,
+  "fire_seconds": 2.5,
+  "post_ms_p50": 1704,
+  "post_ms_p95": 2455,
+  "completed": 30,
+  "lost": 0,
+  "outcome": {
+    "sent:Wanjiru opened the page for THE PRIEST IS DEAD, and it's a thriller with crime elements, matching her interests.": 1,
+    "suppressed:already_purchased": 3,
+    "suppressed:no_consent": 5,
+    "sent:He opened the page for SOMEWHERE TO STAY, so it's the perfect fit.": 1,
+    "sent:Brian opened the page for TEKA and it's in the same genre as his owned comedy, FAMILY MEETING.": 1,
+    "sent:Kevo watched the preview of this exact film and owns thrillers, making comedy a good fit.": 1,
+    "sent:Amina opened JONAROBI, so it's the best fit.": 1,
+    "sent:Brian opened the page for OTIS JANAM, and it's in the same genre as his owned comedy film.": 1,
+    "sent:Wanjiru watched the preview and showed interest in drama and comedy.": 1,
+    "sent:Amina opened KIENYEJI, so it's the perfect match for her interest.": 1,
+    "sent:Brian opened the page for SUPASTAZ, and it's in the same family genre as his other comedy films.": 1,
+    "sent:rejected twice: names_another_title: KIZINGO, then names_another_title: KIZINGO": 1,
+    "sent:She opened the page for the first episode, making it the perfect starting point.": 1,
+    "sent:unusable_output: model call failed: timeout of 60000ms exceeded": 8,
+    "sent:rejected twice: claims_a_feeling: loved, then claims_a_feeling: loved": 1,
+    "suppressed:already_nudged": 2
+  },
+  "fired_to_sent_s": {
+    "p50": 87.389,
+    "p95": 102.3,
+    "max": 102.3
+  },
+  "per_kind": {
+    "browse": {
+      "fired": 30,
+      "sent": 20,
+      "p50": 87.389,
+      "p95": 102.3,
+      "max": 102.3
+    }
+  },
+  "ai": 10,
+  "fallback": 10,
+  "fallback_reasons": {
+    "rejected twice": 2,
+    "unusable_output": 8
+  },
+  "error_rows": 0,
+  "workflow_errors": 0,
+  "total_seconds": 106.3,
+  "docker_before": [
+    {
+      "name": "backend-1",
+      "mem": "30.43MiB",
+      "cpu": "0.00%"
+    },
+    {
+      "name": "n8n-1",
+      "mem": "378.7MiB",
+      "cpu": "0.21%"
+    },
+    {
+      "name": "ollama-1",
+      "mem": "2.01GiB",
+      "cpu": "0.09%"
+    }
+  ],
+  "docker_during": [
+    {
+      "t": 15.002,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "30.77MiB",
+          "cpu": "0.00%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "782.6MiB",
+          "cpu": "0.70%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "2.01GiB",
+          "cpu": "0.10%"
+        }
+      ]
+    },
+    {
+      "t": 30.015,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "31.62MiB",
+          "cpu": "0.00%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "751.9MiB",
+          "cpu": "10.59%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "2.016GiB",
+          "cpu": "489.80%"
+        }
+      ]
+    },
+    {
+      "t": 45.024,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "31.61MiB",
+          "cpu": "0.29%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "613.1MiB",
+          "cpu": "24.42%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "2.011GiB",
+          "cpu": "324.64%"
+        }
+      ]
+    },
+    {
+      "t": 60.027,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "32.25MiB",
+          "cpu": "0.00%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "583.9MiB",
+          "cpu": "3.63%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.999GiB",
+          "cpu": "595.15%"
+        }
+      ]
+    },
+    {
+      "t": 75.039,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "32.39MiB",
+          "cpu": "0.00%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "562.2MiB",
+          "cpu": "0.66%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "2.004GiB",
+          "cpu": "603.20%"
+        }
+      ]
+    },
+    {
+      "t": 90.051,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "32.73MiB",
+          "cpu": "0.01%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "490.6MiB",
+          "cpu": "0.99%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "2.009GiB",
+          "cpu": "222.84%"
+        }
+      ]
+    }
+  ],
+  "docker_after": [
+    {
+      "name": "backend-1",
+      "mem": "32.46MiB",
+      "cpu": "0.00%"
+    },
+    {
+      "name": "n8n-1",
+      "mem": "410.5MiB",
+      "cpu": "0.70%"
+    },
+    {
+      "name": "ollama-1",
+      "mem": "2.009GiB",
+      "cpu": "0.09%"
+    }
+  ]
+}

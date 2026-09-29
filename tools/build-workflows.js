@@ -414,6 +414,7 @@ try {
 } catch (e) { reason = 'unusable_output: ' + e.message; }
 
 // One retry, with the rejection reason as feedback. Not after a failed call (a timeout would just double).
+// The model timeout is 25 s: a warm 7B answers in 5-12 s; a slower answer goes out as the fallback, logged.
 if (!FINAL && raw && !String(reason).includes('model call failed')) {
   const content = typeof raw === 'string' ? raw : JSON.stringify(raw);
   return [{ json: { retry: true, first_reason: reason, retry_body: { ...g.ollama_body, messages: [...g.ollama_body.messages,
@@ -465,11 +466,11 @@ function pipeline() {
     ifTrue('Send?', 2860, 280, "$('Lock check').first().json.proceed"),
     ifTrue('AI lane?', 3080, 260, "$('Policy gate').first().json.lane === 'ai'"),
     http('Ask the model', 3300, 160, { method: 'POST', url: "{{ $('Settings').first().json.ollama_url }}/api/chat",
-      body: "{{ JSON.stringify($('Policy gate').first().json.ollama_body) }}", timeout: 60000, continueOnFail: true, auth: false }),
+      body: "{{ JSON.stringify($('Policy gate').first().json.ollama_body) }}", timeout: 25000, continueOnFail: true, auth: false }),
     code('Guardrails', 3520, 160, guardrails(false)),
     ifTrue('Retry?', 3740, 160, '$json.retry === true'),
     http('Ask again', 3960, 40, { method: 'POST', url: "{{ $('Settings').first().json.ollama_url }}/api/chat",
-      body: '{{ JSON.stringify($json.retry_body) }}', timeout: 60000, continueOnFail: true, auth: false }),
+      body: '{{ JSON.stringify($json.retry_body) }}', timeout: 25000, continueOnFail: true, auth: false }),
     code('Guardrails (retry)', 4180, 40, guardrails(true)),
     code('Template message', 3300, 380, TEMPLATE_OUT),
     http('Final re-check', 3740, 280, {
@@ -529,8 +530,9 @@ return due.map((d) => ({ json: { event: 'winback_due', user_id: d.user_id, demo_
   link(conn, 'Settings', 'Find inactive users');
   link(conn, 'Find inactive users', 'To win-back events');
   link(conn, 'To win-back events', 'Push into pipeline');
+  // The scan runs every 10 s; saving each successful run would bury the pipeline's executions. Errors are still saved.
   return { id: WINBACK_ID, name: 'yak-winback-scan', active: false, nodes, connections: conn,
-    settings: { executionOrder: 'v1', errorWorkflow: ERRORS_ID }, pinData: {}, tags: [] };
+    settings: { executionOrder: 'v1', errorWorkflow: ERRORS_ID, saveDataSuccessExecution: 'none' }, pinData: {}, tags: [] };
 }
 
 // ---------------------------------------------------------------- error alerts

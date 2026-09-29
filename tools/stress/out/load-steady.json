@@ -1,0 +1,299 @@
+{
+  "label": "steady",
+  "config": {
+    "rate": 1,
+    "duration": 120,
+    "burst": 0,
+    "concurrency": 50,
+    "mix": {
+      "payment": 2,
+      "device": 1,
+      "signup": 1,
+      "browse": 1
+    }
+  },
+  "fired": 120,
+  "post_errors": 0,
+  "fire_seconds": 119.1,
+  "post_ms_p50": 53,
+  "post_ms_p95": 190,
+  "completed": 120,
+  "lost": 0,
+  "outcome": {
+    "sent": 60,
+    "suppressed:already_purchased": 12,
+    "suppressed:no_consent": 24,
+    "sent:rejected twice: repeats_the_title, then names_another_title: THE COLLECTOR": 1,
+    "sent:She watched the preview of JONAROBI, so it's the most relevant choice.": 1,
+    "sent:rejected twice: names_another_title: KIZINGO, then names_another_title: KIZINGO": 1,
+    "sent:2nd try (1st rejected: generic_phrase: check it out). She previewed this exact film, making it the most relevant choice.": 1,
+    "suppressed:already_nudged": 12,
+    "sent:She opened THE COLLECTOR, so it's the perfect fit.": 1,
+    "sent:She opened the exact film, making it the most relevant choice.": 1,
+    "sent:rejected twice: generic_phrase: check it out, then names_another_title: SUPASTAZ": 1,
+    "sent:She watched the free preview of this exact film, making it the most relevant choice.": 1,
+    "sent:She opened the preview of this exact film, making it the most relevant choice.": 1,
+    "sent:She watched the preview of JONAROBI, so it's the perfect match.": 1,
+    "sent:She watched the free preview of this exact film.": 1,
+    "sent:She watched the preview of THE PRIEST IS DEAD, making it the most relevant choice.": 1
+  },
+  "fired_to_sent_s": {
+    "p50": 3.777,
+    "p95": 34.32,
+    "max": 43.8
+  },
+  "per_kind": {
+    "payment": {
+      "fired": 48,
+      "sent": 42,
+      "p50": 3.783,
+      "p95": 3.903,
+      "max": 3.972
+    },
+    "device": {
+      "fired": 24,
+      "sent": 18,
+      "p50": 0.337,
+      "p95": 0.579,
+      "max": 0.579
+    },
+    "signup": {
+      "fired": 24,
+      "sent": 0,
+      "p50": null,
+      "p95": null,
+      "max": null
+    },
+    "browse": {
+      "fired": 24,
+      "sent": 12,
+      "p50": 32.847,
+      "p95": 43.8,
+      "max": 43.8
+    }
+  },
+  "ai": 9,
+  "fallback": 3,
+  "fallback_reasons": {
+    "rejected twice": 3
+  },
+  "error_rows": 0,
+  "workflow_errors": 0,
+  "total_seconds": 147.5,
+  "docker_before": [
+    {
+      "name": "backend-1",
+      "mem": "23.18MiB",
+      "cpu": "0.01%"
+    },
+    {
+      "name": "n8n-1",
+      "mem": "386.5MiB",
+      "cpu": "0.12%"
+    },
+    {
+      "name": "ollama-1",
+      "mem": "1.096GiB",
+      "cpu": "0.08%"
+    }
+  ],
+  "docker_during": [
+    {
+      "t": 15.007,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "26.01MiB",
+          "cpu": "0.01%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "490.4MiB",
+          "cpu": "0.28%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.096GiB",
+          "cpu": "0.10%"
+        }
+      ]
+    },
+    {
+      "t": 30.01,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "26.81MiB",
+          "cpu": "0.01%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "578.2MiB",
+          "cpu": "0.85%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.186GiB",
+          "cpu": "599.95%"
+        }
+      ]
+    },
+    {
+      "t": 45.016,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "25.54MiB",
+          "cpu": "0.02%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "596.1MiB",
+          "cpu": "0.27%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.282GiB",
+          "cpu": "604.69%"
+        }
+      ]
+    },
+    {
+      "t": 60.028,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "25.45MiB",
+          "cpu": "0.00%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "609.5MiB",
+          "cpu": "0.87%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.397GiB",
+          "cpu": "584.26%"
+        }
+      ]
+    },
+    {
+      "t": 75.029,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "27.32MiB",
+          "cpu": "0.01%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "615.5MiB",
+          "cpu": "0.13%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.496GiB",
+          "cpu": "617.75%"
+        }
+      ]
+    },
+    {
+      "t": 90.043,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "27.28MiB",
+          "cpu": "0.00%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "627.3MiB",
+          "cpu": "0.71%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.597GiB",
+          "cpu": "602.97%"
+        }
+      ]
+    },
+    {
+      "t": 105.052,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "27.32MiB",
+          "cpu": "0.01%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "618.2MiB",
+          "cpu": "0.16%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.597GiB",
+          "cpu": "0.09%"
+        }
+      ]
+    },
+    {
+      "t": 120.065,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "29.24MiB",
+          "cpu": "1.04%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "617.5MiB",
+          "cpu": "0.77%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.681GiB",
+          "cpu": "398.65%"
+        }
+      ]
+    },
+    {
+      "t": 135.071,
+      "s": [
+        {
+          "name": "backend-1",
+          "mem": "28.11MiB",
+          "cpu": "0.01%"
+        },
+        {
+          "name": "n8n-1",
+          "mem": "552.7MiB",
+          "cpu": "0.30%"
+        },
+        {
+          "name": "ollama-1",
+          "mem": "1.681GiB",
+          "cpu": "0.09%"
+        }
+      ]
+    }
+  ],
+  "docker_after": [
+    {
+      "name": "backend-1",
+      "mem": "28.3MiB",
+      "cpu": "0.00%"
+    },
+    {
+      "name": "n8n-1",
+      "mem": "519.8MiB",
+      "cpu": "0.96%"
+    },
+    {
+      "name": "ollama-1",
+      "mem": "1.681GiB",
+      "cpu": "0.08%"
+    }
+  ]
+}

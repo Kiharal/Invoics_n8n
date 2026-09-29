@@ -381,11 +381,18 @@ dialog .buttons .primary {
 }
 .dot.sent, .dot.bought { background: var(--ok); }
 .dot.waiting { background: var(--wait); }
-.dot.held, .dot.failed { background: var(--stop); }
+.dot.held, .dot.failed, .dot.lost { background: var(--stop); }
 .status { font-size: 13px; white-space: nowrap; }
 .status.sent, .status.bought { color: var(--ok); }
 .status.waiting { color: var(--wait); }
-.status.held, .status.failed { color: var(--stop); }
+.status.held, .status.failed, .status.lost { color: var(--stop); }
+
+.funnel { margin: 0 0 18px; overflow-x: auto; }
+.funnel h2 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 6px; display: flex; justify-content: space-between; }
+.funnel h2 a { color: var(--muted); }
+.funnel table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.funnel th, .funnel td { text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line-strong); vertical-align: top; }
+.funnel th { font-weight: 500; color: var(--muted); }
 
 .detail {
   padding: 0 4px 14px;
