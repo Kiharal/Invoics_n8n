@@ -6,7 +6,7 @@
 <title>Yakwetu · Logs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=Inter:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body class="full">
@@ -27,6 +27,10 @@
     </div>
   </header>
   <p class="stats" id="stats"></p>
+  <section class="funnel">
+    <h2><span>Funnel by branch</span><a class="ghost" href="/api/export.csv">Export CSV</a></h2>
+    <div id="funnel"><p class="empty">No runs yet.</p></div>
+  </section>
   <div class="filters" id="filters">
     <button type="button" data-filter="all" aria-pressed="true">All</button>
     <button type="button" data-filter="sent">Sent</button>

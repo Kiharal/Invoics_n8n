@@ -9,7 +9,6 @@
   --wait: #a67c3a;
   --stop: #9a4440;
   --font: "Inter", "Segoe UI", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", "ui-monospace", "SFMono-Regular", Menlo, monospace;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
@@ -106,13 +105,13 @@ input[type="checkbox"] { accent-color: var(--ink); width: 14px; height: 14px; }
   border-top: 1px solid var(--line);
   margin: 12px 0;
 }
-.consent, .who-field {
+.who-panel .consent, .who-field {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
   margin-bottom: 10px;
 }
-.consent label, .check {
+.who-panel .consent label, .check {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -139,14 +138,17 @@ input[type="checkbox"] { accent-color: var(--ink); width: 14px; height: 14px; }
 }
 .listbox-btn::after {
   content: "";
+  display: block;
   width: 8px;
   height: 8px;
   border-right: 1.5px solid var(--muted);
   border-bottom: 1.5px solid var(--muted);
   transform: rotate(45deg);
-  margin-top: -4px;
+  align-self: center;
   flex: none;
+  transition: transform 140ms ease;
 }
+.listbox-btn[aria-expanded="true"]::after { transform: rotate(225deg); }
 .listbox-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .listbox-menu {
   position: absolute;
@@ -269,6 +271,8 @@ dialog .sheet img {
 dialog .sheet strong { display: block; font-weight: 500; letter-spacing: -0.03em; }
 dialog .sheet b { display: block; margin-top: 4px; font-weight: 400; color: var(--muted); }
 dialog .field { margin-bottom: 14px; }
+dialog .field .listbox-btn { min-height: 40px; padding-top: 0; padding-bottom: 0; line-height: 1.25; }
+dialog .field .listbox-value { display: block; line-height: 1.25; transform: translateY(3px); }
 dialog .field span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
 dialog .buttons { display: flex; gap: 8px; }
 dialog .buttons button {
@@ -285,11 +289,11 @@ dialog .buttons .primary {
 }
 
 .toast {
-  position: absolute;
+  position: fixed;
   left: 28px;
   bottom: 24px;
   z-index: 40;
-  width: min(320px, calc(100% - 56px));
+  width: min(320px, calc(50vw - 56px));
 }
 .toast[hidden] { display: none; }
 .phone {
@@ -306,8 +310,8 @@ dialog .buttons .primary {
   letter-spacing: 0.04em;
 }
 .phone.whatsapp .phone-bar { background: #128c7e; }
-.phone.sms .phone-bar { background: #2a2622; }
-.phone.email .phone-bar { background: #3d3934; }
+.phone.sms .phone-bar { background: #2878c7; }
+.phone.email .phone-bar { background: #d44638; }
 .phone-from {
   padding: 10px 12px 0;
   font-size: 11px;
@@ -360,9 +364,11 @@ dialog .buttons .primary {
 .row {
   background: none;
   border: 0;
+  align-items: center;
+  min-height: 42px;
 }
 .row:hover { background: rgba(0, 0, 0, 0.02); }
-.row .t { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.row .t { font-size: 12px; color: var(--muted); }
 .row .who { color: var(--muted); font-size: 13px; }
 .row .title {
   min-width: 0;
@@ -385,7 +391,14 @@ dialog .buttons .primary {
 .status { font-size: 13px; white-space: nowrap; }
 .status.sent, .status.bought { color: var(--ok); }
 .status.waiting { color: var(--wait); }
-.status.held, .status.failed { color: var(--stop); }
+.status.held, .status.failed, .status.lost { color: var(--stop); }
+
+.funnel { margin: 0 0 18px; overflow-x: auto; }
+.funnel h2 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 6px; display: flex; align-items: center; justify-content: space-between; }
+.funnel h2 a { display: inline-flex; align-items: center; color: var(--ink); font-weight: 400; }
+.funnel table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.funnel th, .funnel td { text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line-strong); vertical-align: top; }
+.funnel th { font-weight: 500; color: var(--muted); }
 
 .detail {
   padding: 0 4px 14px;
@@ -413,7 +426,7 @@ dialog .buttons .primary {
 .steps li { padding: 2px 0; }
 .steps li.ok { color: var(--ink); }
 .steps li.stop { color: var(--stop); }
-.clock { color: var(--wait); margin-bottom: 8px; font-family: var(--mono); font-size: 12px; }
+.clock { color: var(--wait); margin-bottom: 8px; font-size: 12px; }
 .message {
   margin-top: 12px;
   border: 1px solid var(--line-strong);
@@ -442,7 +455,7 @@ dialog .buttons .primary {
   .store, .live { overflow: visible; }
   .pane-body { overflow: visible; }
   .live { border-left: none; border-top: 1px solid var(--line); }
-  .toast { position: fixed; }
+  .toast { left: 16px; width: min(320px, calc(100vw - 32px)); }
 }
 @media (max-width: 800px) {
   .page, .pane-head, .pane-body { padding-left: 16px; padding-right: 16px; }
