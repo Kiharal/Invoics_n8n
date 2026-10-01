@@ -133,9 +133,9 @@ real_minutes = e^(demo_seconds / 5.1) − 1      (inverse, for display)
 - Note: preview-failure users (site finding) look the same as uninterested users until the storefront can report `preview_failed`.
 
 **B. Payment rescue**
-- Trigger: `payment_failed` with a `failure_reason` (STK timeout, wrong PIN, insufficient funds, card declined).
+- Trigger: `payment_failed` with a `payment_method` (M-Pesa, Bonga points, Visa, Mastercard) and one of two outcomes: `not_completed` or `card_declined` (cards only). See D11.
 - Delay: 1 min real, giving the user a moment to retry on their own before the re-check.
-- Message: troubleshooting steps matched to the reason, plus an alternative payment path. No promotional content.
+- Message: nothing was charged, try again, or pay another way (the other methods). It never names a reason. No promotional content.
 
 **B sub-case: unsupported device**
 - Trigger: `unsupported_device` at BUY.
@@ -168,6 +168,29 @@ real_minutes = e^(demo_seconds / 5.1) − 1      (inverse, for display)
 - Mock purchase status held by the mock backend, so the re-check step has something real to call.
 - One log store that both n8n writes to and the frontend reads from.
 
+### D10. Hardening and personalisation (2026-09-28)
+
+**Problem:** AI messages all read the same. Cause: the model was never pulled, so every AI nudge was the fallback template; and even with a model, the prompt only carried the viewer's name and a title list, so there was nothing to personalise with.
+
+**Decision:**
+- The catalog carries each film's real story, cast and runtime (from the title pages). The backend keeps per-viewer activity and returns a profile (favourite genre from purchases, owned titles, recent activity).
+- The rules attach a `why_for_viewer` to each candidate (previewed it, shares an actor with a film they own, same genre, their language). The model gets this as a JSON brief with one worked example, and must name the film, use a story detail and connect it to the viewer.
+- Output is constrained by a JSON schema (pick is an enum of candidate ids). New guardrails: names the picked film, names no other candidate, no example leak, no links, KES figures must be real.
+- The fallback template is personal too, so a model failure never reads as a mass mailing.
+- Tested with qwen2.5:7b: it invented feelings ("you loved"), crew facts ("same director") and film genres, and wrote poor Sheng. Guardrails now reject those, and a rejected message gets one retry with the reason before the fallback. Sheng speakers get English with a Sheng greeting.
+- Nudge lock: one browse or sign-up nudge per viewer and title, one win-back per viewer, per 24 h real (compressed with the same function). Utility help is never locked. Stops "preview then view" from sending two nudges.
+- Purchase is re-checked again right before delivery; the delivery adapter refuses channels without consent.
+- `tools/stress.js` checks all of the above against the log.
+
+### D11. Payment rescue has two outcomes (2026-09-29)
+
+**Problem:** the demo offered "wrong PIN" and "not enough balance" as failure reasons, and M-Pesa was the only method besides a generic card.
+
+**Decision:**
+- Why an M-Pesa or Bonga prompt did not complete (PIN, balance, timeout, cancel) is the customer's own business. Daraja cannot read a customer's wallet balance, and a message that names the reason reads as intrusive. The engine handles only: the payment went through (no nudge) or it did not complete; plus a declined Visa or Mastercard.
+- Payment methods follow the live site: M-Pesa, Bonga points, Visa, Mastercard. The message names the method used and offers the others.
+- Note for the integration: Daraja's STK callback does return a result code (e.g. 1032 cancelled, 1037 timeout). The storefront maps any non-zero code to `not_completed`; the raw code is not passed on.
+
 ---
 
 ## 3. Deferred (later this week, if time allows)
@@ -186,7 +209,7 @@ real_minutes = e^(demo_seconds / 5.1) − 1      (inverse, for display)
 
 1. Can the storefront emit `preview_failed`, `unsupported_device` and `auth_abandoned`? If not, what can GA4/GTM see today?
 2. What does the `ref` parameter on /login and /register encode, and does it survive sign-up?
-3. Checkout currency and methods (KES via M-Pesa STK, cards), and typical failure/timeout rates?
+3. Checkout methods are M-Pesa, Bonga points, Visa and Mastercard (KES). Typical failure rates per method? Does a failed Bonga payment go through the same STK flow?
 4. Consent status of existing users for WhatsApp and email marketing?
 5. Is there an iOS roadmap?
 6. Who owns user and payment data given the MyMovies.Africa backend?

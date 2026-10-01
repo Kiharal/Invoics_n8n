@@ -32,7 +32,9 @@ function bulbState(r) {
     if (row.stage === 'duplicate' || (row.stage === 'suppressed' && row.at === 'admit')) s.Wait = 'stop';
     if (row.stage === 'waiting') s.Wait = 'on';
     if (row.stage === 'checked') { s.Wait = 'done'; s.Checks = 'done'; }
-    if (row.stage === 'suppressed' && row.at === 'gate') { s.Wait = 'done'; s.Checks = 'stop'; }
+    if (row.stage === 'suppressed' && (row.at === 'gate' || row.at === 'lock')) { s.Wait = 'done'; s.Checks = 'stop'; }
+    // Bought while the message was being prepared: the final re-check stops delivery.
+    if (row.stage === 'suppressed' && row.at === 'final_check') { s.Message = 'done'; s.Delivery = 'stop'; }
     if (row.stage === 'sent') { s.Message = 'done'; s.Delivery = 'done'; }
     if (row.stage === 'failed') s.Delivery = 'stop';
   }
@@ -40,10 +42,19 @@ function bulbState(r) {
   return s;
 }
 
+// A run with no decision this long after its wait ended was lost (e.g. n8n restarted mid-wait). Say so instead of "Waiting" forever.
+const LOST_AFTER_S = 60;
+function lostRun(r) {
+  const w = r.rows.find((x) => x.stage === 'waiting');
+  if (!w || r.rows.some((x) => ['sent', 'failed', 'suppressed', 'duplicate'].includes(x.stage))) return false;
+  return Date.now() > Date.parse(w.ts) + ((w.demo_delay_s || 0) + LOST_AFTER_S) * 1000;
+}
+
 function runStatus(r) {
   if (r.rows.some((x) => x.stage === 'sent')) return 'sent';
   if (r.rows.some((x) => x.stage === 'failed')) return 'failed';
   if (r.rows.some((x) => x.stage === 'duplicate' || x.stage === 'suppressed')) return 'held';
+  if (lostRun(r)) return 'lost';
   if (r.rows.some((x) => x.stage === 'waiting') && bulbState(r).Wait === 'on') return 'waiting';
   return 'open';
 }
@@ -133,6 +144,18 @@ function bindListboxes(root = document) {
   });
 }
 
+// Funnel per branch: runs in, held back (by reason), sent (by channel), purchases credited to a nudge, revenue.
+function drawFunnel(rows) {
+  const host = $('#funnel');
+  if (!host) return;
+  const list = (o) => Object.entries(o).map(([k, v]) => `${escapeHtml(labelChannel(k).replace(/_/g, ' '))} ${v}`).join(', ') || '—';
+  host.innerHTML = rows.length
+    ? `<table><thead><tr><th>Branch</th><th>Runs</th><th>Held back</th><th>Sent</th><th>Bought from nudge</th><th>KES</th></tr></thead><tbody>`
+      + rows.map((r) => `<tr><td>${escapeHtml(branchName(r.branch))}</td><td>${r.events}${r.duplicates ? ` (+${r.duplicates} dup)` : ''}</td><td>${list(r.suppressed)}</td><td>${list(r.sent)}${r.failed ? `, failed ${r.failed}` : ''}</td><td>${r.purchases}</td><td>${r.revenue_kes}</td></tr>`).join('')
+      + '</tbody></table>'
+    : '<p class="empty">No runs yet.</p>';
+}
+
 function LogBoard({ compact } = {}) {
   const runs = new Map();
   const notes = [];
@@ -145,6 +168,7 @@ function LogBoard({ compact } = {}) {
   function noteStatus(n) {
     if (n.stage === 'purchased') return 'bought';
     if (n.stage === 'inactive_armed') return 'waiting';
+    if (n.stage === 'consent_changed') return 'consent';
     return 'open';
   }
 
@@ -175,7 +199,7 @@ function LogBoard({ compact } = {}) {
 
   function visible() {
     const all = items();
-    return filter === 'all' ? all : all.filter((x) => x.status === filter);
+    return filter === 'all' ? all : all.filter((x) => x.status === filter || (filter === 'failed' && x.status === 'lost'));
   }
 
   function replayLast() {
@@ -186,13 +210,13 @@ function LogBoard({ compact } = {}) {
 
   function rowHtml(item) {
     const st = item.status;
-    const word = { sent: 'Sent', held: 'Held', failed: 'Failed', waiting: 'Waiting', bought: 'Bought', open: 'Open' }[st] || st;
+    const word = { sent: 'Sent', held: 'Held', failed: 'Failed', lost: 'Lost', waiting: 'Waiting', bought: 'Bought', consent: 'Consent', open: 'Open' }[st] || st;
     const extra = item.kind === 'run' && st === 'sent'
       ? ` · ${labelChannel((item.r.rows.find((x) => x.channel) || {}).channel)}`
-      : '';
+      : item.kind === 'note' && item.n.attributed ? ` · KES ${item.n.revenue_kes} from nudge` : '';
     const text = titleName(item.title_id) || item.label;
     const who = userName(item.user_id);
-    return `<button class="row" data-key="${item.key}" type="button" aria-expanded="${item.key === openKey}">
+    return `<button class="row" data-key="${escapeHtml(item.key)}" type="button" aria-expanded="${item.key === openKey}">
       <span class="status ${st}"><i class="dot ${st}"></i>${word}${extra}</span>
       <span class="t">${timeOf(item.ts)}</span>
       <span class="who">${escapeHtml(who)}</span>
@@ -210,8 +234,8 @@ function LogBoard({ compact } = {}) {
       if (x.stage === 'sent') text = `Sent by ${labelChannel(x.channel)}${x.delivery === 'simulated' ? ' (simulated, no credentials set)' : x.delivery === 'logged' ? ' (logged only)' : ''}`;
       if (x.stage === 'failed' && x.channel) text = `Delivery by ${labelChannel(x.channel)} failed: ${x.detail}`;
       return text ? `<li class="${cls}">${escapeHtml(text)}</li>` : '';
-    }).join('');
-    const clock = waiting && s.Wait === 'on'
+    }).join('') + (lostRun(r) ? `<li class="stop">No decision ${LOST_AFTER_S} s after the wait ended: this run was lost (n8n restarted or the platform was down). Nothing was sent.</li>` : '');
+    const clock = waiting && s.Wait === 'on' && !lostRun(r)
       ? `<div class="clock" data-end="${Date.parse(waiting.ts) + waiting.demo_delay_s * 1000}" data-real="${waiting.real_delay_min}"></div>`
       : '';
     const why = sent && sent.source === 'fallback' && sent.reason ? ` (${escapeHtml(sent.reason)})` : '';
@@ -271,7 +295,8 @@ function LogBoard({ compact } = {}) {
 
   async function stats() {
     const st = await api('/api/stats');
-    if ($('#stats')) $('#stats').innerHTML = `<b>${st.sent}</b>sent &nbsp; <b>${st.suppressed}</b>held &nbsp; <b>${st.purchased}</b>bought &nbsp; <b>${st.ios_waitlist}</b>iPhone`;
+    if ($('#stats')) $('#stats').innerHTML = `<b>${st.sent}</b>sent &nbsp; <b>${st.suppressed}</b>held &nbsp; <b>${st.purchased}</b>bought &nbsp; <b>KES ${st.attributed_kes || 0}</b>from nudges &nbsp; <b>${st.ios_waitlist}</b>iPhone`;
+    if ($('#funnel')) drawFunnel(await api('/api/funnel'));
     const stub = $('[data-listbox="stub"]');
     if (stub) setListbox(stub, st.aiStubMode, true);
   }
@@ -302,6 +327,9 @@ function LogBoard({ compact } = {}) {
     if (stub) stub.addEventListener('change', () => api('/api/admin/ai-stub-mode', { method: 'POST', body: { mode: listboxValue(stub) } }));
     if ($('#reset')) $('#reset').onclick = () => api('/api/admin/reset', { method: 'POST' });
     setInterval(tick, 100);
+    // Status can change with no new row (a run is declared lost), so re-check every few seconds.
+    let sig = '';
+    setInterval(() => { const now = items().map((x) => x.status).join(); if (now !== sig) { sig = now; draw(); } }, 3000);
   }
 
   async function start(onRow) {

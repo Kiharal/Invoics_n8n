@@ -4,7 +4,7 @@
   "active": false,
   "nodes": [
     {
-      "id": "00000000-0000-4000-8000-000000000024",
+      "id": "00000000-0000-4000-8000-000000000035",
       "name": "Every 10 seconds",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -24,7 +24,7 @@
       }
     },
     {
-      "id": "00000000-0000-4000-8000-000000000025",
+      "id": "00000000-0000-4000-8000-000000000036",
       "name": "Settings",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -37,7 +37,7 @@
       }
     },
     {
-      "id": "00000000-0000-4000-8000-000000000026",
+      "id": "00000000-0000-4000-8000-000000000037",
       "name": "Find inactive users",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -63,7 +63,7 @@
       }
     },
     {
-      "id": "00000000-0000-4000-8000-000000000027",
+      "id": "00000000-0000-4000-8000-000000000038",
       "name": "To win-back events",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -76,7 +76,7 @@
       }
     },
     {
-      "id": "00000000-0000-4000-8000-000000000028",
+      "id": "00000000-0000-4000-8000-000000000039",
       "name": "Push into pipeline",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -153,7 +153,8 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "errorWorkflow": "yakErrorAlerts01"
+    "errorWorkflow": "yakErrorAlerts01",
+    "saveDataSuccessExecution": "none"
   },
   "pinData": {},
   "tags": []

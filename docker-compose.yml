@@ -1,7 +1,8 @@
 services:
   backend:
     build: ./backend
-    ports: ["3000:3000"]
+    # Localhost only: on venue Wi-Fi nobody else can reset the demo, flip consent or call the delivery adapter.
+    ports: ["127.0.0.1:3000:3000"]
     env_file: .env
     environment:
       N8N_WEBHOOK_URL: http://n8n:5678/webhook/yak/events
@@ -9,7 +10,7 @@ services:
 
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
-    ports: ["5678:5678"]
+    ports: ["127.0.0.1:5678:5678"]
     env_file: .env
     environment:
       GENERIC_TIMEZONE: Africa/Nairobi
@@ -17,16 +18,32 @@ services:
       N8N_SECURE_COOKIE: "false"
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       BACKEND_URL: http://backend:3000
+      # n8n talks to the model through the backend, so the panel's AI switch (good / breaks the rules / times out)
+      # works on the real stack. In "good" mode the backend forwards to the backend's own OLLAMA_URL.
+      OLLAMA_URL: http://backend:3000/ai
     volumes:
       - n8n_data:/home/node/.n8n
       - ./workflows:/workflows:ro
     restart: unless-stopped
 
+  # Optional: the real model. Start with `docker compose --profile ai up -d` (needs an NVIDIA GPU as configured).
+  # Without it, set OLLAMA_URL=http://backend:3000/mock-ollama in .env and the built-in stub writes the AI messages.
   ollama:
+    profiles: ["ai"]
     image: ollama/ollama:latest
-    ports: ["11434:11434"]
+    ports: ["127.0.0.1:11434:11434"]
     volumes:
       - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
+    # NVIDIA GPU via the Docker nvidia runtime. Remove this block on machines without one.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: unless-stopped
 
 volumes:

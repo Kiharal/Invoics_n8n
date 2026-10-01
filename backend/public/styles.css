@@ -387,7 +387,7 @@ dialog .buttons .primary {
 }
 .dot.sent, .dot.bought { background: var(--ok); }
 .dot.waiting { background: var(--wait); }
-.dot.held, .dot.failed { background: var(--stop); }
+.dot.held, .dot.failed, .dot.lost { background: var(--stop); }
 .status { font-size: 13px; white-space: nowrap; }
 .status.sent, .status.bought { color: var(--ok); }
 .status.waiting { color: var(--wait); }

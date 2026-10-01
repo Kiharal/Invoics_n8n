@@ -1,0 +1,154 @@
+[
+  {
+    "id": "C1",
+    "name": "Ollama stopped during an AI-lane wait",
+    "expected": "fallback template sent, reason logged",
+    "actual": "sent:unusable_output: model call failed: getaddrinfo ENOTFOUND ollama [fallback] | unusable_output: model call failed: getaddrinfo ENOTFOUND ollama",
+    "status": "PASS",
+    "evidence": "docker compose stop ollama -> "
+  },
+  {
+    "id": "C8",
+    "name": "Duplicate storm: same event_id x20 concurrently",
+    "expected": "exactly 1 sent, 19 duplicate",
+    "actual": "fired=20 duplicate=19 sent=1 waiting=1",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "M1",
+    "name": "Backend /api/events: missing event",
+    "expected": "rejected with 4xx, or handled and logged; never a crash",
+    "actual": "HTTP 400 {\"error\":\"event and a known user_id are required\"}",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "M2",
+    "name": "Backend /api/events: unknown user",
+    "expected": "rejected with 4xx, or handled and logged; never a crash",
+    "actual": "HTTP 400 {\"error\":\"event and a known user_id are required\"}",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "M3",
+    "name": "Backend /api/events: unknown title",
+    "expected": "rejected with 4xx, or handled and logged; never a crash",
+    "actual": "HTTP 400 {\"error\":\"unknown title_id\"}",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "M4",
+    "name": "Backend /api/events: user_id is a number",
+    "expected": "rejected with 4xx, or handled and logged; never a crash",
+    "actual": "HTTP 400 {\"error\":\"event and a known user_id are required\"}",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "M5",
+    "name": "Backend /api/events: context is a string",
+    "expected": "rejected with 4xx, or handled and logged; never a crash",
+    "actual": "HTTP 200 {\"ok\":true,\"event\":{\"event_id\":\"ceafc479-16e7-47e8-9bcc-82138c24c792\",\"event\":\"payment_failed\",\"ts\":",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "M6",
+    "name": "Backend /api/events: event is an array",
+    "expected": "rejected with 4xx, or handled and logged; never a crash",
+    "actual": "HTTP 200 {\"ok\":true,\"event\":{\"event_id\":\"e318741b-094c-4607-b106-ec3058651273\",\"event\":[\"payment_failed\"],\"ts",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "M7",
+    "name": "Backend /api/events: unknown event name",
+    "expected": "rejected with 4xx, or handled and logged; never a crash",
+    "actual": "HTTP 200 {\"ok\":true,\"event\":{\"event_id\":\"41daf5ea-480d-457a-8111-d88d2312cad9\",\"event\":\"rocket_launched\",\"ts\"",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "M8",
+    "name": "Backend /api/events: 1 MB context field",
+    "expected": "rejected with 4xx, or handled and logged; never a crash",
+    "actual": "HTTP 413 <!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "M9",
+    "name": "Backend /api/events: invalid JSON",
+    "expected": "400",
+    "actual": "HTTP 400",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "M10",
+    "name": "Handled malformed events (string context, array event, unknown event, 1 MB pad)",
+    "expected": "each ends in a logged row, no workflow_error",
+    "actual": "sent to Brian: 2; suppressed: invalid_event; workflow_error rows: 0",
+    "status": "PASS",
+    "evidence": ""
+  },
+  {
+    "id": "M11",
+    "name": "Backend /api/events: 2 MB body",
+    "expected": "413",
+    "actual": "HTTP 413",
+    "status": "PASS",
+    "evidence": "express.json limit is 1mb"
+  },
+  {
+    "id": "M12",
+    "name": "Event posted straight to the n8n webhook (no auth, bypassing the backend)",
+    "expected": "accepted by n8n; runs with no \"fired\" row",
+    "actual": "HTTP 200; rows: waiting, checked, sent [template]",
+    "status": "BLOCKED",
+    "evidence": "anyone who can reach :5678 can inject events"
+  },
+  {
+    "id": "C2",
+    "name": "Backend stopped mid-wait (sign-up rescue, 15.5 s wait), down ~11.1 s, then restarted",
+    "expected": "run completes after restart; panel may lose earlier rows (in-memory)",
+    "actual": "rows for event after restart: checked, sent [template]; total log rows: 2",
+    "status": "PASS",
+    "evidence": "earlier fired/waiting rows are gone: in-memory log store was wiped by the restart"
+  },
+  {
+    "id": "C2b",
+    "name": "Backend down when the 3.5 s payment wait ends",
+    "expected": "run lost or error logged somewhere visible",
+    "actual": "log rows after restart: 0 (none); n8n pipeline executions before [{\"workflowId\":\"yakPipeline00001\",\"status\":\"error\",\"n\":1},{\"workflowId\":\"yakPipeline00001\",\"status\":\"running\",\"n\":1},{\"workflowId\":\"yakPipeline00001\",\"status\":\"success\",\"n\":611}] after [{\"workflowId\":\"yakPipeline00001\",\"status\":\"error\",\"n\":2},{\"workflowId\":\"yakPipeline00001\",\"status\":\"success\",\"n\":611}]",
+    "status": "FAIL",
+    "evidence": "the run errors inside n8n; the error workflow also posts to the (down) backend, so nothing reaches the panel"
+  },
+  {
+    "id": "C3",
+    "name": "n8n restarted while 4 runs sat in the Wait node (restart took 20.0 s, healthz=true)",
+    "expected": "runs resume after restart",
+    "actual": "0/4 finished, 4 stuck at \"waiting\" forever; webhook accepts events after restart: true",
+    "status": "FAIL",
+    "evidence": "n8n keeps waits under 65 s in memory; a restart drops them. The panel shows them as \"Waiting\" with a finished countdown."
+  },
+  {
+    "id": "C4",
+    "name": "Backend restart: what state survives",
+    "expected": "documented: all state is in memory",
+    "actual": "logs 6 -> 0; Amina whatsapp consent back to true; Brian owns TEKA: false; replayed old event_id -> sent [template]",
+    "status": "FAIL",
+    "evidence": "consent changes, purchases, logs, dedupe set and nudge locks are lost; a replayed event is sent a second time"
+  },
+  {
+    "id": "C5",
+    "name": "Pipeline workflow unpublished, event fired",
+    "expected": "backend answers 502 and logs failed:n8n_unreachable",
+    "actual": "HTTP 200; row: none",
+    "status": "FAIL",
+    "evidence": "Please restart n8n for changes to take effect if n8n is currently running."
+  }
+]

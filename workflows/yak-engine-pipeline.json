@@ -43,7 +43,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "\n// D1: a branch is a trigger plus a config block. Delays are always in REAL minutes (D4).\nconst BRANCHES = {\n  payment_failed:     { branch: 'B_payment',     delay_real_min: 1,   lane: 'template', kind: 'utility' },\n  unsupported_device: { branch: 'B_device',      delay_real_min: 0,   lane: 'template', kind: 'utility' },\n  preview_completed:  { branch: 'A_browse',      delay_real_min: 120, lane: 'ai',       kind: 'marketing' },\n  title_viewed:       { branch: 'A_browse',      delay_real_min: 120, lane: 'ai',       kind: 'marketing' },\n  auth_abandoned:     { branch: 'signup_rescue', delay_real_min: 20,  lane: 'template', kind: 'marketing' },\n  winback_due:        { branch: 'winback',       delay_real_min: 0,   lane: 'ai',       kind: 'marketing' },\n};\n// D4: the only place real time becomes demo time.\nconst compress = (realMin) => 5.1 * Math.log(1 + realMin);\n\nconst evt = $('Event in').first().json.body || {};\nconst missing = ['event_id', 'event', 'user_id'].filter((k) => !evt[k]);\nconst cfg = BRANCHES[evt.event];\nconst demo = evt.demo_mode !== false;\nlet invalid = null;\nif (missing.length) invalid = 'missing ' + missing.join(', ');\nelse if (!cfg) invalid = 'no branch handles ' + evt.event;\n\nconst real = cfg ? cfg.delay_real_min : 0;\nconst wait_s = demo ? Number(compress(real).toFixed(1)) : real * 60;\nreturn [{ json: {\n  evt, ...(cfg || {}), invalid, demo_mode: demo,\n  real_delay_min: real, wait_s,\n  nudge_id: 'n_' + Math.random().toString(36).slice(2, 10),\n} }];"
+        "jsCode": "\n// D1: a branch is a trigger plus a config block. Delays are always in REAL minutes (D4).\n// lock: which nudges collapse into one inside the lock window (null = never collapse; utility help always goes out).\nconst BRANCHES = {\n  payment_failed:     { branch: 'B_payment',     delay_real_min: 1,   lane: 'template', kind: 'utility',   needs_title: true,  lock: null },\n  unsupported_device: { branch: 'B_device',      delay_real_min: 0,   lane: 'template', kind: 'utility',   needs_title: true,  lock: null },\n  preview_completed:  { branch: 'A_browse',      delay_real_min: 120, lane: 'ai',       kind: 'marketing', needs_title: true,  lock: 'user_title' },\n  title_viewed:       { branch: 'A_browse',      delay_real_min: 120, lane: 'ai',       kind: 'marketing', needs_title: true,  lock: 'user_title' },\n  auth_abandoned:     { branch: 'signup_rescue', delay_real_min: 20,  lane: 'template', kind: 'marketing', needs_title: true,  lock: 'user_title' },\n  winback_due:        { branch: 'winback',       delay_real_min: 0,   lane: 'ai',       kind: 'marketing', needs_title: false, lock: 'user' },\n};\nconst LOCK_REAL_MIN = 1440; // one nudge per lock key per 24 h, real time\n// D4: the only place real time becomes demo time.\nconst compress = (realMin) => 5.1 * Math.log(1 + realMin);\n\nconst body = $('Event in').first().json.body || {};\nconst evt = { ...body, context: body.context && typeof body.context === 'object' ? body.context : {} };\nconst missing = ['event_id', 'event', 'user_id'].filter((k) => !evt[k]);\nconst cfg = BRANCHES[evt.event];\nconst demo = evt.demo_mode !== false;\nlet invalid = null;\nif (missing.length) invalid = 'missing ' + missing.join(', ');\nelse if (!cfg) invalid = 'no branch handles ' + evt.event;\nelse if (cfg.needs_title && !evt.title_id) invalid = evt.event + ' needs a title_id';\n\nconst real = cfg ? cfg.delay_real_min : 0;\nconst wait_s = demo ? Number(compress(real).toFixed(1)) : real * 60;\nconst lock_ttl_s = demo ? Number(compress(LOCK_REAL_MIN).toFixed(1)) : LOCK_REAL_MIN * 60;\nconst lock_key = !cfg || !cfg.lock ? null\n  : cfg.lock === 'user' ? cfg.branch + '|' + evt.user_id\n  : cfg.branch + '|' + evt.user_id + '|' + evt.title_id;\nreturn [{ json: {\n  evt, ...(cfg || {}), invalid, demo_mode: demo,\n  real_delay_min: real, wait_s, lock_key, lock_ttl_s,\n  nudge_id: 'n_' + Math.random().toString(36).slice(2, 10),\n} }];"
       }
     },
     {
@@ -189,7 +189,8 @@
             }
           ]
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "id": "00000000-0000-4000-8000-000000000014",
@@ -201,16 +202,58 @@
         280
       ],
       "parameters": {
-        "jsCode": "\n// Runs AFTER the wait: re-check purchase, consent, pick channel and lane, prepare the message.\nconst s = $('Settings').first().json;\nconst c = $('Branch config').first().json;\nconst ctx = $json;                       // from GET /api/context\nconst u = ctx.user;\nconst evt = c.evt;\nconst title = ctx.title;\nconst LANG = { en: 'English', sw: 'Kiswahili', sheng: 'Sheng', luo: 'Dholuo' };\n\nconst link = (t, channel) => t.buy_url + '?utm_source=yak_engine&utm_medium=' + channel + '&utm_campaign=' + c.branch + '&nid=' + c.nudge_id;\nconst base = { event_id: evt.event_id, nudge_id: c.nudge_id, branch: c.branch, user_id: u.id, title_id: evt.title_id || null };\nconst stop = (reason, message) => [{ json: { proceed: false, log: { ...base, stage: 'suppressed', at: 'gate', status: 'stop', reason, message } } }];\n\n// 1. Re-check purchase (T2)\nif (ctx.purchased) return stop('already_purchased', u.name + ' already bought ' + title.name + '. Nothing sent.');\n\n// 2. Channel rules (D6). Consent is read fresh from the backend, never from the event.\nconst k = u.consent;\nfunction utilityChannel() { return k.whatsapp ? 'whatsapp' : k.sms ? 'sms' : k.email ? 'email' : null; }\nfunction marketingChannel(priceKes) {\n  if (k.whatsapp && priceKes >= s.whatsapp_min_kes) return 'whatsapp';\n  if (k.email) return 'email';\n  return null;\n}\nfunction signupChannel() { return k.email ? 'email' : k.whatsapp ? 'whatsapp' : null; }\n\n// 3. Candidates for the AI lane (D5): rules pick, the model only chooses among these.\nfunction candidates() {\n  const owned = new Set(u.owned);\n  const pool = ctx.catalog.filter((t) => !owned.has(t.id));\n  const picked = [];\n  const add = (list) => list.forEach((t) => { if (picked.length < 5 && !picked.find((p) => p.id === t.id)) picked.push(t); });\n  if (title) {\n    add(pool.filter((t) => t.id === title.id));\n    if (title.series_id) add(pool.filter((t) => t.series_id === title.series_id).sort((a, b) => a.episode - b.episode));\n    add(pool.filter((t) => t.genre === title.genre));\n    add(pool.filter((t) => t.languages.some((l) => title.languages.includes(l))));\n  } else {\n    add(pool.filter((t) => t.genre === u.top_genre));\n    add(pool.filter((t) => t.languages.includes(u.language)));\n  }\n  // Cost guard: if email is not allowed, only titles that justify a paid WhatsApp message remain.\n  return k.email ? picked : picked.filter((t) => t.price_kes >= s.whatsapp_min_kes);\n}\n\n// 4. Templates (transactional lanes must be exact, D5)\nconst PAYMENT = {\n  stk_timeout: (t) => 'Your M-Pesa prompt for ' + t.name + ' timed out before the PIN was entered. Nothing was charged. Tap BUY again and enter your PIN within 60 seconds.',\n  wrong_pin: (t) => 'The M-Pesa PIN for ' + t.name + ' was not accepted. Nothing was charged. Tap BUY again and re-enter your PIN carefully.',\n  insufficient_funds: (t) => 'Your M-Pesa balance was not enough for ' + t.name + ' (KES ' + t.price_kes + '). Nothing was charged. Top up, or pay by card, then tap BUY again.',\n  card_declined: (t) => 'Your card was declined for ' + t.name + '. Nothing was charged. You can pay with M-Pesa instead: tap BUY and choose M-Pesa.',\n};\nconst DEVICE = {\n  android: (t, l) => 'YAKWETU plays on Android. Install the app to watch ' + t.name + ': ' + s.android_app_url + '\\nOr open this link in Chrome: ' + l,\n  desktop_non_chrome: (t, l) => 'YAKWETU plays in Google Chrome. Open this link in Chrome to finish buying ' + t.name + ': ' + l,\n  ios: (t, l) => 'YAKWETU does not play on iPhone or iPad yet. You are on the list and we will tell you when it does. Meanwhile ' + t.name + ' plays in Chrome on any laptop: ' + l,\n};\n\nlet lane = c.lane, channel = null, delivery = null, ollama_body = null, fallback = null;\n\nif (c.branch === 'B_payment' || c.branch === 'B_device') {\n  channel = utilityChannel();\n  if (!channel) return stop('no_consent', u.name + ' has no channel we may use. Nothing sent.');\n  const l = link(title, channel);\n  const text = c.branch === 'B_payment'\n    ? (PAYMENT[evt.context.failure_reason] || PAYMENT.stk_timeout)(title) + '\\n' + l\n    : (DEVICE[evt.context.platform] || DEVICE.desktop_non_chrome)(title, l);\n  delivery = { subject: c.branch === 'B_payment' ? 'Your payment for ' + title.name + ' did not go through' : 'How to watch ' + title.name, message: text, source: 'template' };\n} else if (c.branch === 'signup_rescue') {\n  channel = signupChannel();\n  if (!channel) return stop('no_consent', u.name + ' has no channel we may use. Nothing sent.');\n  delivery = { subject: title.name + ' is waiting for you', message: 'Joining YAKWETU is free. ' + title.name + ' is waiting for you: ' + link(title, channel), source: 'template' };\n} else {\n  // AI lanes: A_browse, winback\n  if (!k.email && !k.whatsapp) return stop('no_consent', u.name + ' has not agreed to marketing on any channel. Nothing sent.');\n  const cands = candidates();\n  if (!cands.length) return stop('below_whatsapp_price_floor', 'Only WhatsApp is allowed and no title clears the KES ' + s.whatsapp_min_kes + ' floor for a paid message. Nothing sent.');\n  const f = cands[0];\n  const fch = marketingChannel(f.price_kes);\n  fallback = { title_id: f.id, channel: fch, subject: f.name + ' is waiting for you',\n    message: 'Hi ' + u.name + ', ' + f.name + ' is still waiting for you on YAKWETU. Membership is free, you pay once with M-Pesa and own it forever.\\n' + link(f, fch) };\n  const did = c.branch === 'winback' ? 'has not visited for 30 days. Favourite genre: ' + u.top_genre\n    : 'watched the free preview of ' + title.name + ' and left without buying';\n  ollama_body = {\n    model: s.ollama_model, stream: false, format: 'json', options: { temperature: 0.2 },\n    messages: [\n      { role: 'system', content: 'You write one short purchase nudge for YAKWETU, a Kenyan film platform. Rules: choose exactly one title from CANDIDATES using its id. The only selling points you may use are: membership is free, there is no subscription, you pay once and own it forever, you can pay with M-Pesa. Never use urgency, scarcity, discounts or rental words. No links. At most 250 characters. Write in ' + (LANG[u.language] || 'English') + ' if you can do so naturally, otherwise English. Reply with JSON only: {\"pick_title_id\": \"...\", \"reason\": \"...\", \"message\": \"...\"}' },\n      { role: 'user', content: 'Viewer: ' + u.name + ' ' + did + '.\\nCANDIDATES: ' + JSON.stringify(cands.map((t) => ({ id: t.id, name: t.name, genre: t.genre, languages: t.languages, price_kes: t.price_kes }))) },\n    ],\n  };\n  return [{ json: { proceed: true, lane: 'ai', candidates: cands, ollama_body, fallback,\n    log: { ...base, stage: 'checked', status: 'ok', message: (title ? 'Not bought yet. ' : '') + 'Consent checked. ' + cands.length + ' candidate titles sent to the AI lane.' } } }];\n}\n\nreturn [{ json: { proceed: true, lane: 'template',\n  delivery: { ...base, channel, ...delivery },\n  log: { ...base, stage: 'checked', status: 'ok', channel, message: (title && c.branch !== 'B_device' ? 'Not bought yet. ' : '') + 'Consent checked. Channel: ' + channel + ' (' + c.kind + ').' } } }];"
+        "jsCode": "\n// Runs AFTER the wait: re-check purchase, consent, pick channel and lane, prepare the message.\nconst s = $('Settings').first().json;\nconst c = $('Branch config').first().json;\nconst ctx = $json;                       // from GET /api/context\nconst evt = c.evt;\nconst base = { event_id: evt.event_id, nudge_id: c.nudge_id, branch: c.branch, user_id: evt.user_id, title_id: evt.title_id || null };\nconst stop = (reason, message) => [{ json: { proceed: false, log: { ...base, stage: 'suppressed', at: 'gate', status: 'stop', reason, message } } }];\n\n// 0. The platform must know this viewer and title. A bad id stops here, logged, instead of failing the run.\nif (ctx.error || !ctx.user) {\n  const why = typeof ctx.error === 'string' ? ctx.error : (ctx.error && ctx.error.message) || 'unknown user';\n  return stop('no_context', 'Could not load viewer ' + evt.user_id + ' from the platform (' + why + '). Nothing sent.');\n}\nconst u = ctx.user;\nconst p = ctx.profile || { favourite_genre: u.top_genre, genre_counts: {}, owned_titles: [], recent: [] };\nconst title = ctx.title;\nif (c.needs_title && !title) return stop('unknown_title', 'Title ' + evt.title_id + ' is not in the catalog. Nothing sent.');\nconst first = String(u.name).split(' ')[0];\nconst LANG = { en: 'English', sw: 'Kiswahili', sheng: 'Sheng', luo: 'Dholuo' };\nconst link = (t, channel) => t.buy_url + '?utm_source=yak_engine&utm_medium=' + channel + '&utm_campaign=' + c.branch + '&nid=' + c.nudge_id;\n\n// 1. Re-check purchase (T2)\nif (ctx.purchased) return stop('already_purchased', u.name + ' already bought ' + title.name + '. Nothing sent.');\n\n// 2. Channel rules (D6). Consent is read fresh from the backend, never from the event.\nconst k = u.consent;\nfunction utilityChannel() { return k.whatsapp ? 'whatsapp' : k.sms ? 'sms' : k.email ? 'email' : null; }\nfunction marketingChannel(priceKes) {\n  if (k.whatsapp && priceKes >= s.whatsapp_min_kes) return 'whatsapp';\n  if (k.email) return 'email';\n  return null;\n}\nfunction signupChannel() { return k.email ? 'email' : k.whatsapp ? 'whatsapp' : null; }\n\n// 3. Candidates for the AI lane (D5): rules pick up to 5 and say WHY each fits this viewer.\n//    The model only chooses among these and uses the reasons to personalise.\nfunction candidates() {\n  const owned = new Set(u.owned);\n  const ownedT = p.owned_titles.map((o) => ctx.catalog.find((t) => t.id === o.id)).filter(Boolean);\n  const pool = ctx.catalog.filter((t) => !owned.has(t.id));\n  const picked = [];\n  const add = (list, why) => list.forEach((t) => {\n    const w = typeof why === 'function' ? why(t) : why;\n    if (!w) return;\n    const hit = picked.find((x) => x.id === t.id);\n    if (hit) { if (!hit.why.includes(w)) hit.why.push(w); }\n    else if (picked.length < 5) picked.push({ ...t, why: [w] });\n  });\n  // Labels like \"new release\" say nothing about why two films are alike, so they never count as similarity.\n  const LABELS = ['new release', 'trending', 'short', 'series', 'kenyan favourite', 'internationally acclaimed'];\n  const sharedTag = (a, b) => (a.tags || []).find((x) => !LABELS.includes(x) && (b.tags || []).includes(x));\n  const sharedCast = (a, b) => (a.cast || []).find((x) => (b.cast || []).includes(x));\n  const byOwnedCast = (t) => { for (const o of ownedT) { const a = sharedCast(t, o); if (a) return 'stars ' + a + ', who is also in ' + o.name + ' (they own it)'; } return null; };\n  const byOwnedTag = (t) => { for (const o of ownedT) { const g = sharedTag(t, o); if (g) return 'has ' + g + ', like ' + o.name + ' (they own it)'; } return null; };\n  const byLang = (t) => u.language !== 'en' && t.languages.includes(u.language) ? 'available in ' + LANG[u.language] + ', their language' : null;\n  if (title) {\n    add(pool.filter((t) => t.id === title.id), evt.event === 'preview_completed' ? 'they watched the free preview of this exact film' : 'they opened this exact film');\n    if (title.series_id) add(pool.filter((t) => t.series_id === title.series_id).sort((a, b) => a.episode - b.episode), 'next episode of the series they looked at');\n    add(pool.filter((t) => t.genre === title.genre), 'same genre (' + title.genre + ') as ' + title.name);\n    add(pool, byOwnedCast);\n    add(pool.filter((t) => t.id !== title.id), (t) => { const g = sharedTag(t, title); return g ? 'has ' + g + ', like ' + title.name : null; });\n    add(pool, byOwnedTag);\n    add(pool, byLang);\n  } else {\n    const n = p.genre_counts[p.favourite_genre] || 0;\n    add(pool.filter((t) => t.genre === p.favourite_genre), n ? 'their favourite genre: they own ' + n + ' ' + p.favourite_genre + ' title' + (n === 1 ? '' : 's') : 'their favourite genre (' + p.favourite_genre + ')');\n    add(pool, byOwnedCast);\n    add(pool, byOwnedTag);\n    add(pool, byLang);\n  }\n  // Cost guard: if email is not allowed, only titles that justify a paid WhatsApp message remain.\n  return k.email ? picked : picked.filter((t) => t.price_kes >= s.whatsapp_min_kes);\n}\n\n// 4. Templates (transactional lanes must be exact, D5)\n// Payment rescue knows only two outcomes: the payment did not complete, or a card was declined.\n// Why an M-Pesa or Bonga prompt did not complete (PIN, balance, timeout) is the customer's own business, so no message names it.\nconst PAY_METHOD = { mpesa: 'M-Pesa', bonga: 'Bonga points', visa: 'Visa', mastercard: 'Mastercard' };\nconst PAY_OTHERS = { mpesa: 'Bonga points or a card', bonga: 'M-Pesa or a card', visa: 'M-Pesa, Bonga points or another card', mastercard: 'M-Pesa, Bonga points or another card' };\nfunction paymentText(t, method, reason) {\n  const m = PAY_METHOD[method];\n  if (!m) return 'Your payment for ' + t.name + ' did not go through. Nothing was charged. Tap BUY to try again with M-Pesa, Bonga points, Visa or Mastercard.';\n  const what = reason === 'card_declined' && (method === 'visa' || method === 'mastercard')\n    ? 'Your ' + m + ' card was declined for ' + t.name\n    : 'Your ' + m + ' payment for ' + t.name + ' did not go through';\n  return what + '. Nothing was charged. Tap BUY to try again, or pay with ' + PAY_OTHERS[method] + '.';\n}\nconst DEVICE = {\n  android: (t, l) => 'YAKWETU plays on Android. Install the app to watch ' + t.name + ': ' + s.android_app_url + '\\nOr open this link in Chrome: ' + l,\n  desktop_non_chrome: (t, l) => 'YAKWETU plays in Google Chrome. Open this link in Chrome to finish buying ' + t.name + ': ' + l,\n  ios: (t, l) => 'YAKWETU does not play on iPhone or iPad yet. You are on the list and we will tell you when it does. Meanwhile ' + t.name + ' plays in Chrome on any laptop: ' + l,\n  unknown: (t, l) => 'YAKWETU plays in Google Chrome on Windows, macOS and Android. Open this link there to finish buying ' + t.name + ': ' + l,\n};\n\n// Fallback for the AI lane: still personal (name, the film, its story, why it fits), just not model-written.\nconst PITCH = ' Membership is free, pay once with M-Pesa and own it forever.';\nconst end = (name) => /[.!?]$/.test(name) ? name : name + '.';\nfunction fallbackText(t) {\n  // Lead with the strongest personal link the rules found: a shared actor beats a shared genre.\n  const cast = t.why.map((w) => w.match(/^stars (.+), who is also in (.+) \\(they own it\\)$/)).find(Boolean);\n  let open;\n  if (title && t.id === title.id) open = first + ', you ' + (evt.event === 'preview_completed' ? 'watched the preview of ' : 'had a look at ') + end(t.name);\n  else if (cast) open = first + ', ' + cast[1] + ' from ' + cast[2] + ' is back in ' + end(t.name);\n  else if (title) open = first + ', you looked at ' + title.name + '. You might like ' + end(t.name);\n  else if (p.owned_titles.length) open = first + ', you own ' + p.owned_titles[p.owned_titles.length - 1].name + ', so try ' + end(t.name);\n  else open = first + ', try ' + end(t.name);\n  let story = ' ' + (t.logline || '');\n  const room = 290 - open.length - PITCH.length;\n  if (story.length > room) story = story.slice(0, Math.max(0, room - 1)).replace(/\\s+\\S*$/, '') + '…';\n  return open + story + PITCH;\n}\n\nfunction daypart() {\n  const h = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Africa/Nairobi' }).format(new Date()));\n  return h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';\n}\n\nlet channel = null, delivery = null;\nconst out = (extra, log) => [{ json: { proceed: true, lock_key: c.lock_key, lock_ttl_s: c.lock_ttl_s, ...extra, log: { ...base, stage: 'checked', status: 'ok', ...log } } }];\n\nif (c.branch === 'B_payment' || c.branch === 'B_device') {\n  channel = utilityChannel();\n  if (!channel) return stop('no_consent', u.name + ' has no channel we may use. Nothing sent.');\n  const l = link(title, channel);\n  const text = c.branch === 'B_payment'\n    ? paymentText(title, evt.context.payment_method, evt.context.failure_reason) + '\\n' + l\n    : (DEVICE[evt.context.platform] || DEVICE.unknown)(title, l);\n  delivery = { subject: c.branch === 'B_payment' ? 'Your payment for ' + title.name + ' did not go through' : 'How to watch ' + title.name, message: text, source: 'template' };\n} else if (c.branch === 'signup_rescue') {\n  channel = signupChannel();\n  if (!channel) return stop('no_consent', u.name + ' has no channel we may use. Nothing sent.');\n  delivery = { subject: first + ', ' + title.name + ' is waiting for you', source: 'template',\n    message: first + ', joining YAKWETU is free. ' + title.name + ' is waiting for you: ' + title.logline + '\\n' + link(title, channel) };\n} else {\n  // AI lanes: A_browse, winback\n  if (!k.email && !k.whatsapp) return stop('no_consent', u.name + ' has not agreed to marketing on any channel. Nothing sent.');\n  const cands = candidates();\n  if (!cands.length) return stop('below_whatsapp_price_floor', 'Only WhatsApp is allowed and no title clears the KES ' + s.whatsapp_min_kes + ' floor for a paid message. Nothing sent.');\n  const f = cands[0];\n  const fch = marketingChannel(f.price_kes);\n  const fallback = { title_id: f.id, channel: fch, subject: f.name + ', picked for ' + first, message: fallbackText(f) + '\\n' + link(f, fch) };\n\n  const situation = c.branch === 'winback'\n    ? first + ' has not opened YAKWETU for 30 days.'\n    : evt.event === 'preview_completed' ? first + ' watched the free preview of ' + title.name + ' and left without buying.'\n    : first + ' opened the page for ' + title.name + ' and left without buying.';\n  const brief = {\n    viewer: {\n      first_name: first,\n      writes_in: LANG[u.language] || 'English',\n      favourite_genre: p.favourite_genre,\n      // Genres ride along so the model does not guess what kind of film a referenced title is.\n      owns: p.owned_titles.map((t) => t.name + ' (' + t.genre + ')'),\n      recent_activity: p.recent.slice(0, 4).map((r) => {\n        const t = ctx.catalog.find((x) => x.id === r.title_id);\n        return r.text + (t ? ' (' + t.genre + ')' : '') + (r.days_ago ? ', ' + r.days_ago + ' days ago' : ', today');\n      }),\n    },\n    situation,\n    time_of_day: daypart(),\n    candidates: cands.map((t) => ({ id: t.id, name: t.name, genre: t.genre, story: t.logline, starring: (t.cast || []).join(', '),\n      runtime_min: t.runtime_min, price_kes: t.price_kes, why_for_viewer: t.why.join('; ') })),\n  };\n  // A 7B model writes poor Sheng (tested 28 Sep), so Sheng speakers get English with a Sheng greeting.\n  const langRule = u.language === 'sheng' ? 'Write the message in warm, conversational Kenyan English, opening with a short Sheng greeting such as \"Niaje\".'\n    : u.language === 'sw' ? 'Write the message in simple, natural Kiswahili.'\n    : u.language === 'luo' ? 'Write the message in English, and you may open with a short Dholuo greeting.'\n    : 'Write the message in warm, conversational Kenyan English.';\n  const SYSTEM = [\n    'You write ONE short personal message from YAKWETU, a Kenyan film platform, to one viewer.',\n    'Step 1: pick the single candidate that fits this viewer best, using why_for_viewer, what they own and what they did recently.',\n    'Step 2: write the message. It must:',\n    '- start with the viewer first name;',\n    '- name the chosen film exactly once, in capitals, exactly as written in \"name\";',\n    '- use one concrete detail from its \"story\" (a character, place or situation) in your own words, as a hook;',\n    '- connect the film to this viewer using why_for_viewer (for example the film they previewed, or a film they own);',\n    '- end with at most ONE of these selling points: membership is free; no subscription; pay once and own it forever; pay with M-Pesa.',\n    'Never: urgency or scarcity words, discounts, offers, renting, prices other than price_kes, facts not in the brief, links, hashtags, more than one emoji.',\n    'You only know what the viewer DID (bought, previewed, opened), never how they felt: do not write loved, enjoyed or liked. You know nothing about the crew, awards, twists or the ending: never mention them.',\n    'Only mention other films that appear in owns or recent_activity, and only with the genre given there.',\n    'Avoid empty phrases like \"is waiting for you\", \"don\\'t miss\" or \"check it out\". Sound like a friend who knows films, not an advert.',\n    'Keep it under 240 characters. Keep film names in English exactly as given. ' + langRule,\n    'Reply with JSON only: {\"pick_title_id\": \"<id from candidates>\", \"reason\": \"<one short sentence: why this film for this viewer>\", \"message\": \"<the message>\"}',\n  ].join('\\n');\n  // One worked example. Its film is made up; the guardrails reject any message that repeats it.\n  const EX_BRIEF = { viewer: { first_name: 'Zawadi', writes_in: 'English', favourite_genre: 'thriller', owns: ['NIGHT SHIFT (thriller)'], recent_activity: ['watched the preview of THE LAST MATATU (thriller), today'] },\n    situation: 'Zawadi watched the free preview of THE LAST MATATU and left without buying.', time_of_day: 'evening',\n    candidates: [{ id: 'x_last_matatu', name: 'THE LAST MATATU', genre: 'thriller', story: 'A matatu conductor finds a bag of stolen phones on the last trip of the night.', starring: 'Example Actor', runtime_min: 88, price_kes: 99, why_for_viewer: 'they watched the free preview of this exact film' }] };\n  const EX_ANSWER = { pick_title_id: 'x_last_matatu', reason: 'She watched the whole preview, so the same film is the strongest pick.',\n    message: 'Zawadi, you saw the preview of THE LAST MATATU. That bag of stolen phones is still on the last trip home, and the conductor has to decide who to trust. Pay once with M-Pesa and it is yours forever.' };\n\n  const ollama_body = {\n    // keep_alive holds the model in memory between nudges; num_predict bounds generation time.\n    // format is a JSON schema: the model can only return an id that is in the candidate list.\n    model: s.ollama_model, stream: false, keep_alive: '30m',\n    options: { temperature: 0.2, num_predict: 320, num_ctx: 4096 },\n    format: { type: 'object', required: ['pick_title_id', 'reason', 'message'], properties: {\n      pick_title_id: { type: 'string', enum: cands.map((t) => t.id) }, reason: { type: 'string' }, message: { type: 'string' } } },\n    messages: [\n      { role: 'system', content: SYSTEM },\n      { role: 'user', content: JSON.stringify(EX_BRIEF) },\n      { role: 'assistant', content: JSON.stringify(EX_ANSWER) },\n      { role: 'user', content: JSON.stringify(brief) },\n    ],\n  };\n  return out({ lane: 'ai', candidates: cands, ollama_body, fallback, example_names: ['THE LAST MATATU', 'NIGHT SHIFT', 'Zawadi'], first_name: first,\n      // Films the message may mention besides the pick: ones the viewer owns or recently touched.\n      referable_ids: [...new Set([...p.owned_titles.map((t) => t.id), ...p.recent.map((r) => r.title_id)])] },\n    { message: (title ? 'Not bought yet. ' : '') + 'Consent checked. ' + cands.length + ' candidate titles sent to the AI lane: ' + cands.map((t) => t.name).join(', ') + '.' });\n}\n\nreturn out({ lane: 'template', delivery: { ...base, channel, ...delivery } },\n  { channel, message: (title && c.branch !== 'B_device' ? 'Not bought yet. ' : '') + 'Consent checked. Channel: ' + channel + ' (' + c.kind + ').' });"
       }
     },
     {
       "id": "00000000-0000-4000-8000-000000000015",
-      "name": "Log decision",
+      "name": "Nudge lock",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
         2200,
+        280
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.backend_url }}/api/locks",
+        "options": {
+          "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-yak-key",
+              "value": "={{ $('Settings').first().json.yak_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ key: $('Policy gate').first().json.proceed ? ($('Policy gate').first().json.lock_key || null) : null, ttl_s: $('Policy gate').first().json.lock_ttl_s || 60 }) }}"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000016",
+      "name": "Lock check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        280
+      ],
+      "parameters": {
+        "jsCode": "\nconst g = $('Policy gate').first().json;\nconst c = $('Branch config').first().json;\nif (g.proceed && $json.claimed === false) {\n  return [{ json: { proceed: false, lane: g.lane, log: { ...g.log, stage: 'suppressed', at: 'lock', status: 'stop', reason: 'already_nudged',\n    message: 'This viewer already got a ' + c.branch + ' nudge for this in the last 24 hours (demo: ' + c.lock_ttl_s + ' s). Nothing sent.' } } }];\n}\nreturn [{ json: { proceed: g.proceed, lane: g.lane, log: g.log } }];"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000017",
+      "name": "Log decision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
         280
       ],
       "parameters": {
@@ -230,16 +273,16 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($('Policy gate').first().json.log) }}"
+        "jsonBody": "={{ JSON.stringify($('Lock check').first().json.log) }}"
       }
     },
     {
-      "id": "00000000-0000-4000-8000-000000000016",
+      "id": "00000000-0000-4000-8000-000000000018",
       "name": "Send?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        2420,
+        2860,
         280
       ],
       "parameters": {
@@ -251,41 +294,8 @@
           },
           "conditions": [
             {
-              "id": "00000000-0000-4000-8000-000000000017",
-              "leftValue": "={{ $('Policy gate').first().json.proceed }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "00000000-0000-4000-8000-000000000018",
-      "name": "AI lane?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        2640,
-        260
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
-          "conditions": [
-            {
               "id": "00000000-0000-4000-8000-000000000019",
-              "leftValue": "={{ $('Policy gate').first().json.lane === 'ai' }}",
+              "leftValue": "={{ $('Lock check').first().json.proceed }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
@@ -301,18 +311,51 @@
     },
     {
       "id": "00000000-0000-4000-8000-000000000020",
+      "name": "AI lane?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        260
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "00000000-0000-4000-8000-000000000021",
+              "leftValue": "={{ $('Policy gate').first().json.lane === 'ai' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000022",
       "name": "Ask the model",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2860,
+        3300,
         160
       ],
       "parameters": {
         "method": "POST",
         "url": "={{ $('Settings').first().json.ollama_url }}/api/chat",
         "options": {
-          "timeout": 20000
+          "timeout": 25000
         },
         "sendBody": true,
         "specifyBody": "json",
@@ -321,25 +364,92 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "00000000-0000-4000-8000-000000000021",
+      "id": "00000000-0000-4000-8000-000000000023",
       "name": "Guardrails",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3080,
+        3520,
         160
       ],
       "parameters": {
-        "jsCode": "\n// D5 guardrails. Anything wrong falls back to a fixed template, and the log says so.\nconst s = $('Settings').first().json;\nconst c = $('Branch config').first().json;\nconst g = $('Policy gate').first().json;\nconst u = $('Context').first().json.user;\nconst BANNED = /(limited|hurry|expires?|last chance|discount|% ?off|\\brent)/i;\n\nlet reason = null, out = null;\ntry {\n  if ($json.error) throw new Error('model call failed');\n  const raw = $json.message && $json.message.content;\n  out = typeof raw === 'string' ? JSON.parse(raw) : raw;\n  const cand = g.candidates.find((t) => t.id === (out && out.pick_title_id));\n  if (!cand) reason = 'pick_not_in_candidates';\n  else if (!out.message || out.message.length > 300) reason = 'too_long_or_empty';\n  else if (BANNED.test(out.message)) reason = 'banned_phrase';\n  else {\n    // Channel is a cost rule, not a model decision. The gate guarantees one of these is allowed.\n    const channel = (u.consent.whatsapp && cand.price_kes >= s.whatsapp_min_kes) ? 'whatsapp' : 'email';\n    const url = cand.buy_url + '?utm_source=yak_engine&utm_medium=' + channel + '&utm_campaign=' + c.branch + '&nid=' + c.nudge_id;\n    return [{ json: { event_id: c.evt.event_id, nudge_id: c.nudge_id, branch: c.branch, user_id: u.id, title_id: cand.id,\n      channel, subject: cand.name + ' is waiting for you', message: out.message.trim() + '\\n' + url, source: 'ai', source_reason: out.reason || null } }];\n  }\n} catch (e) { reason = 'unusable_output: ' + e.message; }\n\nconst f = g.fallback;\nreturn [{ json: { event_id: c.evt.event_id, nudge_id: c.nudge_id, branch: c.branch, user_id: u.id, title_id: f.title_id,\n  channel: f.channel, subject: f.subject, message: f.message, source: 'fallback', source_reason: reason } }];"
+        "jsCode": "\n// D5 guardrails. A rejected message gets one retry with the reason; after that a personal template goes out, and the log says why.\nconst FINAL = false;\nconst s = $('Settings').first().json;\nconst c = $('Branch config').first().json;\nconst g = $('Policy gate').first().json;\nconst u = $('Context').first().json.user;\nconst BANNED = /(limited|hurry|expires?|last chance|discount|% ?off|\\brent|\\boffer|\\bdeal\\b|don'?t miss|haraka|punguzo|\\bofa\\b|leo tu)/i;\nconst URLISH = /(https?:\\/\\/|www\\.|\\.africa|\\.com\\b)/i;\n// We know what viewers did, not how they felt about it.\nconst FEELINGS = /\\b(?:loved|enjoyed|liked|adored)\\b/i;\n// Facts the brief never gives the model (crew, awards, endings): anything here was invented.\nconst UNKNOWN = /\\b(?:director|directed|producer|award|sequel|ending|twist|kept you|you seen|same team)\\b/i;\nconst GENERIC = /(check it out|is waiting for you|won'?t want to miss|don'?t miss|miss out)/i;\nconst catalog = $('Context').first().json.catalog;\nconst norm = (x) => String(x).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();\nconst core = (name) => norm(name.replace(/\\s+Ep\\.\\s*\\d+$/i, ''));\n\nfunction check(out) {\n  const cand = g.candidates.find((t) => t.id === (out && out.pick_title_id));\n  if (!cand) return { reason: 'pick_not_in_candidates' };\n  const m = String(out.message || '').trim().replace(/[\\u2018\\u2019]/g, \"'\"); // curly apostrophes would dodge the checks\n  if (!m || m.length > 300) return { reason: 'too_long_or_empty (' + m.length + ' chars)' };\n  if (BANNED.test(m)) return { reason: 'banned_phrase: ' + m.match(BANNED)[0] };\n  if (URLISH.test(m)) return { reason: 'contains_link' };\n  const nm = ' ' + norm(m) + ' ';\n  const pickCore = core(cand.name);\n  if (!nm.includes(' ' + pickCore + ' ')) return { reason: 'does_not_name_the_film' };\n  if (nm.split(' ' + pickCore + ' ').length > 2) return { reason: 'repeats_the_title' };\n  const exact = cand.name.replace(/\\s+Ep\\.\\s*\\d+$/i, '');\n  if (!m.includes(exact)) return { reason: 'title_not_written_exactly' };\n  if (FEELINGS.test(m)) return { reason: 'claims_a_feeling: ' + m.match(FEELINGS)[0] };\n  if (UNKNOWN.test(m)) return { reason: 'claims_unknown_fact: ' + m.match(UNKNOWN)[0] };\n  if (GENERIC.test(m)) return { reason: 'generic_phrase: ' + m.match(GENERIC)[0] };\n  // Other films: never another candidate; any other catalog title only if the viewer owns or recently touched it.\n  const other = catalog.find((t) => core(t.name) !== pickCore && nm.includes(' ' + core(t.name) + ' ')\n    && (g.candidates.some((x) => x.id === t.id) || !g.referable_ids.includes(t.id)));\n  if (other) return { reason: 'names_another_title: ' + other.name };\n  const leak = g.example_names.find((x) => nm.includes(' ' + norm(x) + ' '));\n  if (leak) return { reason: 'copied_the_example: ' + leak };\n  // Any KES amount must be the real price, or a figure from the film's own story (e.g. a prize).\n  const nums = (x) => [...String(x).matchAll(/(?:kes|ksh|kshs|sh)\\.?\\s?(\\d[\\d,]*)/gi)].map((y) => Number(y[1].replace(/,/g, '')));\n  const allowed = [cand.price_kes, ...nums(cand.logline || '')];\n  if (nums(m).some((v) => !allowed.includes(v))) return { reason: 'wrong_price' };\n  return { cand, message: m };\n}\n\nlet reason = null, raw = null;\ntry {\n  if ($json.error) {\n    const e = $json.error;\n    throw new Error('model call failed: ' + (typeof e === 'string' ? e : e.message || e.description || JSON.stringify(e)).slice(0, 160));\n  }\n  raw = $json.message && $json.message.content;\n  if (!raw) throw new Error('empty model reply');\n  const r = check(typeof raw === 'string' ? JSON.parse(raw) : raw);\n  if (r.cand) {\n    // Channel is a cost rule, not a model decision. The gate guarantees one of these is allowed.\n    const channel = (u.consent.whatsapp && r.cand.price_kes >= s.whatsapp_min_kes) ? 'whatsapp' : 'email';\n    const url = r.cand.buy_url + '?utm_source=yak_engine&utm_medium=' + channel + '&utm_campaign=' + c.branch + '&nid=' + c.nudge_id;\n    const out = JSON.parse(typeof raw === 'string' ? raw : JSON.stringify(raw));\n    return [{ json: { event_id: c.evt.event_id, nudge_id: c.nudge_id, branch: c.branch, user_id: u.id, title_id: r.cand.id,\n      channel, subject: r.cand.name + ', picked for ' + g.first_name, message: r.message + '\\n' + url, source: 'ai',\n      source_reason: (FINAL ? '2nd try (1st rejected: ' + $('Guardrails').first().json.first_reason + '). ' : '') + (out.reason || '') } }];\n  }\n  reason = r.reason;\n} catch (e) { reason = 'unusable_output: ' + e.message; }\n\n// One retry, with the rejection reason as feedback. Not after a failed call (a timeout would just double).\n// The model timeout is 25 s: a warm 7B answers in 5-12 s; a slower answer goes out as the fallback, logged.\nif (!FINAL && raw && !String(reason).includes('model call failed')) {\n  const content = typeof raw === 'string' ? raw : JSON.stringify(raw);\n  return [{ json: { retry: true, first_reason: reason, retry_body: { ...g.ollama_body, messages: [...g.ollama_body.messages,\n    { role: 'assistant', content },\n    { role: 'user', content: 'Rejected: ' + reason + '. Write a new message for the same viewer that follows every rule. Same JSON format.' }] } } }];\n}\nif (FINAL) reason = 'rejected twice: ' + $('Guardrails').first().json.first_reason + ', then ' + reason;\nconst f = g.fallback;\nreturn [{ json: { event_id: c.evt.event_id, nudge_id: c.nudge_id, branch: c.branch, user_id: u.id, title_id: f.title_id,\n  channel: f.channel, subject: f.subject, message: f.message, source: 'fallback', source_reason: reason } }];"
       }
     },
     {
-      "id": "00000000-0000-4000-8000-000000000022",
+      "id": "00000000-0000-4000-8000-000000000024",
+      "name": "Retry?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3740,
+        160
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "00000000-0000-4000-8000-000000000025",
+              "leftValue": "={{ $json.retry === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000026",
+      "name": "Ask again",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3960,
+        40
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.ollama_url }}/api/chat",
+        "options": {
+          "timeout": 25000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.retry_body) }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000027",
+      "name": "Guardrails (retry)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4180,
+        40
+      ],
+      "parameters": {
+        "jsCode": "\n// D5 guardrails. A rejected message gets one retry with the reason; after that a personal template goes out, and the log says why.\nconst FINAL = true;\nconst s = $('Settings').first().json;\nconst c = $('Branch config').first().json;\nconst g = $('Policy gate').first().json;\nconst u = $('Context').first().json.user;\nconst BANNED = /(limited|hurry|expires?|last chance|discount|% ?off|\\brent|\\boffer|\\bdeal\\b|don'?t miss|haraka|punguzo|\\bofa\\b|leo tu)/i;\nconst URLISH = /(https?:\\/\\/|www\\.|\\.africa|\\.com\\b)/i;\n// We know what viewers did, not how they felt about it.\nconst FEELINGS = /\\b(?:loved|enjoyed|liked|adored)\\b/i;\n// Facts the brief never gives the model (crew, awards, endings): anything here was invented.\nconst UNKNOWN = /\\b(?:director|directed|producer|award|sequel|ending|twist|kept you|you seen|same team)\\b/i;\nconst GENERIC = /(check it out|is waiting for you|won'?t want to miss|don'?t miss|miss out)/i;\nconst catalog = $('Context').first().json.catalog;\nconst norm = (x) => String(x).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();\nconst core = (name) => norm(name.replace(/\\s+Ep\\.\\s*\\d+$/i, ''));\n\nfunction check(out) {\n  const cand = g.candidates.find((t) => t.id === (out && out.pick_title_id));\n  if (!cand) return { reason: 'pick_not_in_candidates' };\n  const m = String(out.message || '').trim().replace(/[\\u2018\\u2019]/g, \"'\"); // curly apostrophes would dodge the checks\n  if (!m || m.length > 300) return { reason: 'too_long_or_empty (' + m.length + ' chars)' };\n  if (BANNED.test(m)) return { reason: 'banned_phrase: ' + m.match(BANNED)[0] };\n  if (URLISH.test(m)) return { reason: 'contains_link' };\n  const nm = ' ' + norm(m) + ' ';\n  const pickCore = core(cand.name);\n  if (!nm.includes(' ' + pickCore + ' ')) return { reason: 'does_not_name_the_film' };\n  if (nm.split(' ' + pickCore + ' ').length > 2) return { reason: 'repeats_the_title' };\n  const exact = cand.name.replace(/\\s+Ep\\.\\s*\\d+$/i, '');\n  if (!m.includes(exact)) return { reason: 'title_not_written_exactly' };\n  if (FEELINGS.test(m)) return { reason: 'claims_a_feeling: ' + m.match(FEELINGS)[0] };\n  if (UNKNOWN.test(m)) return { reason: 'claims_unknown_fact: ' + m.match(UNKNOWN)[0] };\n  if (GENERIC.test(m)) return { reason: 'generic_phrase: ' + m.match(GENERIC)[0] };\n  // Other films: never another candidate; any other catalog title only if the viewer owns or recently touched it.\n  const other = catalog.find((t) => core(t.name) !== pickCore && nm.includes(' ' + core(t.name) + ' ')\n    && (g.candidates.some((x) => x.id === t.id) || !g.referable_ids.includes(t.id)));\n  if (other) return { reason: 'names_another_title: ' + other.name };\n  const leak = g.example_names.find((x) => nm.includes(' ' + norm(x) + ' '));\n  if (leak) return { reason: 'copied_the_example: ' + leak };\n  // Any KES amount must be the real price, or a figure from the film's own story (e.g. a prize).\n  const nums = (x) => [...String(x).matchAll(/(?:kes|ksh|kshs|sh)\\.?\\s?(\\d[\\d,]*)/gi)].map((y) => Number(y[1].replace(/,/g, '')));\n  const allowed = [cand.price_kes, ...nums(cand.logline || '')];\n  if (nums(m).some((v) => !allowed.includes(v))) return { reason: 'wrong_price' };\n  return { cand, message: m };\n}\n\nlet reason = null, raw = null;\ntry {\n  if ($json.error) {\n    const e = $json.error;\n    throw new Error('model call failed: ' + (typeof e === 'string' ? e : e.message || e.description || JSON.stringify(e)).slice(0, 160));\n  }\n  raw = $json.message && $json.message.content;\n  if (!raw) throw new Error('empty model reply');\n  const r = check(typeof raw === 'string' ? JSON.parse(raw) : raw);\n  if (r.cand) {\n    // Channel is a cost rule, not a model decision. The gate guarantees one of these is allowed.\n    const channel = (u.consent.whatsapp && r.cand.price_kes >= s.whatsapp_min_kes) ? 'whatsapp' : 'email';\n    const url = r.cand.buy_url + '?utm_source=yak_engine&utm_medium=' + channel + '&utm_campaign=' + c.branch + '&nid=' + c.nudge_id;\n    const out = JSON.parse(typeof raw === 'string' ? raw : JSON.stringify(raw));\n    return [{ json: { event_id: c.evt.event_id, nudge_id: c.nudge_id, branch: c.branch, user_id: u.id, title_id: r.cand.id,\n      channel, subject: r.cand.name + ', picked for ' + g.first_name, message: r.message + '\\n' + url, source: 'ai',\n      source_reason: (FINAL ? '2nd try (1st rejected: ' + $('Guardrails').first().json.first_reason + '). ' : '') + (out.reason || '') } }];\n  }\n  reason = r.reason;\n} catch (e) { reason = 'unusable_output: ' + e.message; }\n\n// One retry, with the rejection reason as feedback. Not after a failed call (a timeout would just double).\n// The model timeout is 25 s: a warm 7B answers in 5-12 s; a slower answer goes out as the fallback, logged.\nif (!FINAL && raw && !String(reason).includes('model call failed')) {\n  const content = typeof raw === 'string' ? raw : JSON.stringify(raw);\n  return [{ json: { retry: true, first_reason: reason, retry_body: { ...g.ollama_body, messages: [...g.ollama_body.messages,\n    { role: 'assistant', content },\n    { role: 'user', content: 'Rejected: ' + reason + '. Write a new message for the same viewer that follows every rule. Same JSON format.' }] } } }];\n}\nif (FINAL) reason = 'rejected twice: ' + $('Guardrails').first().json.first_reason + ', then ' + reason;\nconst f = g.fallback;\nreturn [{ json: { event_id: c.evt.event_id, nudge_id: c.nudge_id, branch: c.branch, user_id: u.id, title_id: f.title_id,\n  channel: f.channel, subject: f.subject, message: f.message, source: 'fallback', source_reason: reason } }];"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000028",
       "name": "Template message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2860,
+        3300,
         380
       ],
       "parameters": {
@@ -347,13 +457,85 @@
       }
     },
     {
-      "id": "00000000-0000-4000-8000-000000000023",
+      "id": "00000000-0000-4000-8000-000000000029",
+      "name": "Final re-check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3740,
+        280
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Settings').first().json.backend_url }}/api/purchase-check?user_id={{ encodeURIComponent($json.user_id) }}&title_ids={{ encodeURIComponent([$json.title_id, $('Branch config').first().json.evt.title_id].filter(Boolean).join(',')) }}",
+        "options": {
+          "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-yak-key",
+              "value": "={{ $('Settings').first().json.yak_key }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000030",
+      "name": "Still unbought?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3960,
+        280
+      ],
+      "parameters": {
+        "jsCode": "\nconst g = $('Policy gate').first().json;\nconst c = $('Branch config').first().json;\nconst d = g.lane !== 'ai' ? $('Template message').first().json\n  : $('Guardrails').first().json.retry ? $('Guardrails (retry)').first().json : $('Guardrails').first().json;\nconst bought = $json.purchased || [];\nif (bought.length) {\n  return [{ json: { send: false, log: { event_id: d.event_id, nudge_id: d.nudge_id, branch: d.branch, user_id: d.user_id, title_id: d.title_id,\n    stage: 'suppressed', at: 'final_check', status: 'stop', reason: 'purchased_before_send',\n    message: 'Bought ' + bought.join(', ') + ' while the message was being prepared. Nothing sent.' } } }];\n}\nreturn [{ json: { send: true, delivery: d } }];"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000031",
+      "name": "Send now?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4180,
+        280
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "00000000-0000-4000-8000-000000000032",
+              "leftValue": "={{ $json.send }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000033",
       "name": "Deliver",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3300,
-        280
+        4400,
+        200
       ],
       "parameters": {
         "method": "POST",
@@ -372,7 +554,36 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}"
+        "jsonBody": "={{ JSON.stringify($json.delivery) }}"
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000034",
+      "name": "Log late stop",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4400,
+        380
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.backend_url }}/api/logs",
+        "options": {
+          "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-yak-key",
+              "value": "={{ $('Settings').first().json.yak_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.log) }}"
       }
     }
   ],
@@ -480,6 +691,28 @@
       "main": [
         [
           {
+            "node": "Nudge lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nudge lock": {
+      "main": [
+        [
+          {
+            "node": "Lock check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lock check": {
+      "main": [
+        [
+          {
             "node": "Log decision",
             "type": "main",
             "index": 0
@@ -542,7 +775,47 @@
       "main": [
         [
           {
-            "node": "Deliver",
+            "node": "Retry?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry?": {
+      "main": [
+        [
+          {
+            "node": "Ask again",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final re-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask again": {
+      "main": [
+        [
+          {
+            "node": "Guardrails (retry)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardrails (retry)": {
+      "main": [
+        [
+          {
+            "node": "Final re-check",
             "type": "main",
             "index": 0
           }
@@ -553,7 +826,47 @@
       "main": [
         [
           {
+            "node": "Final re-check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final re-check": {
+      "main": [
+        [
+          {
+            "node": "Still unbought?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still unbought?": {
+      "main": [
+        [
+          {
+            "node": "Send now?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send now?": {
+      "main": [
+        [
+          {
             "node": "Deliver",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log late stop",
             "type": "main",
             "index": 0
           }

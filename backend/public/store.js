@@ -1,4 +1,7 @@
 let users = [], catalog = [], current = null, pendingTitle = null;
+// The nudge id each viewer last received per title. Buying that title stands in for tapping the link in the
+// message (the real link carries ?nid=), so the backend can credit the purchase to the nudge.
+const lastNudge = {};
 
 const me = () => users.find((u) => u.id === current);
 const isIn = (id) => session.signed()[id] !== false;
@@ -100,11 +103,19 @@ async function pay() {
   closeDialog('#checkout');
   if (!t) return;
   if (outcome === 'success') {
-    await api('/api/purchases', { method: 'POST', body: { user_id: current, title_id: t.id } });
+    await api('/api/purchases', { method: 'POST', body: { user_id: current, title_id: t.id, nid: lastNudge[current + '|' + t.id] } });
     await load();
   } else {
-    await fire('payment_failed', t.id, { failure_reason: outcome, payment_method: outcome === 'card_declined' ? 'card' : 'mpesa' });
+    await fire('payment_failed', t.id, { failure_reason: outcome, payment_method: listboxValue($('[data-listbox="method"]')) });
   }
+}
+
+// Only Visa and Mastercard can be declined; M-Pesa and Bonga points either complete or not.
+function syncPaymentOutcomes() {
+  const card = ['visa', 'mastercard'].includes(listboxValue($('[data-listbox="method"]')));
+  const outcome = $('[data-listbox="payment"]');
+  $('[data-value="card_declined"]', outcome).hidden = !card;
+  if (!card && listboxValue(outcome) === 'card_declined') setListbox(outcome, 'not_completed', true);
 }
 
 function showToast(row) {
@@ -157,6 +168,7 @@ $('#signedIn').onchange = (e) => {
   session.setSigned(map);
 };
 $('[data-listbox="device"]').addEventListener('change', (e) => session.setDevice(listboxValue(e.currentTarget)));
+$('[data-listbox="method"]').addEventListener('change', syncPaymentOutcomes);
 $('#goQuiet').onclick = () => {
   api(`/api/users/${current}/inactive`, { method: 'POST' });
 };
@@ -190,7 +202,7 @@ $('#payCancel').onclick = () => closeDialog('#checkout');
   await load();
   const board = LogBoard({ compact: true });
   await board.start((row) => {
-    if (row.stage === 'sent') showToast(row);
+    if (row.stage === 'sent') { showToast(row); if (row.nudge_id) lastNudge[row.user_id + '|' + row.title_id] = row.nudge_id; }
     if (row.stage === 'purchased' || row.stage === 'sent') load();
   });
 })();
